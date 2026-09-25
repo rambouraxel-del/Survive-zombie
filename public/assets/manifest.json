@@ -1,0 +1,840 @@
+{
+ "project": "Les Bois de Cendre",
+ "generated_by": "tools/assets/build_manifest.py",
+ "entries": [
+  {
+   "pack": "LPC Revised (ElizaWy/LPC)",
+   "authors": [
+    "Eliza Wyatt (DeathsDarling)",
+    "Lanea Zimmerman (Sharm)",
+    "Stephen Challener (Redshrike)",
+    "Johannes Sjölund (Wulax)",
+    "bluecarrot16",
+    "BenCreating",
+    "Durrani",
+    "YuriNikolai",
+    "Hyptosis",
+    "Demetrius",
+    "Craftpix.net 2D Game Assets"
+   ],
+   "source": "https://github.com/ElizaWy/LPC",
+   "downloaded_from": "https://github.com/ElizaWy/LPC (commit f07f7f5892e67c932c68f70bb04472f2c64e46bc)",
+   "license": "OGA-BY 3.0",
+   "license_url": "https://opengameart.org/content/oga-by-30-faq",
+   "credits_files": "licenses/lpc-revised/",
+   "local_files": [
+    "assets/atlas/world.png",
+    "assets/atlas/world.json",
+    "assets/atlas/offsets.json",
+    "assets/tiles/terrain_summer.png",
+    "assets/tiles/terrain_autumn.png"
+   ],
+   "original_files": [
+    "Objects/Furniture/Barrel.png",
+    "Objects/Furniture/Chest.png",
+    "Objects/Furniture/Crate.png",
+    "Objects/Furniture/Lighting, Outdoors.png",
+    "Objects/Furniture/Sawhorse.png",
+    "Objects/Furniture/Smithing/Anvils.png",
+    "Objects/Furniture/Smithing/Coal Piles.png",
+    "Objects/Furniture/Smithing/Furnace A.png",
+    "Objects/Furniture/Stone Slab.png",
+    "Objects/Furniture/Wolf Stone.png",
+    "Objects/Furniture/Workbench, Carpentry.png",
+    "Objects/Small Items/Baskets A.png",
+    "Objects/Small Items/Fabric/Blankets, Crumpled.png",
+    "Objects/Small Items/Fabric/Fabric Rolls, Groups.png",
+    "Objects/Small Items/Fire, Camp.png",
+    "Objects/Small Items/Food/Fruit A.png",
+    "Objects/Small Items/Food/Grains, Grasses.png",
+    "Objects/Small Items/Food/Meals.png",
+    "Objects/Small Items/Food/Meats A.png",
+    "Objects/Small Items/Food/Meats B.png",
+    "Objects/Small Items/Food/Mushrooms.png",
+    "Objects/Small Items/Hay & Straw.png",
+    "Objects/Small Items/Loose Paper.png",
+    "Objects/Small Items/Lumber.png",
+    "Objects/Small Items/Ores & Ingots/Alloys.png",
+    "Objects/Small Items/Ores & Ingots/Ore, Coal.png",
+    "Objects/Small Items/Ores & Ingots/Ore, Iron.png",
+    "Objects/Small Items/Ores & Ingots/Ore, Stone.png",
+    "Objects/Small Items/Skeletons A.png",
+    "Objects/Small Items/Tools, Smithing.png",
+    "Structure/Doors/32x48px Doors/12 Panel Door A.png",
+    "Structure/Fences/Plain Fence A.png",
+    "Structure/Pillars/Stone Pillar A.png",
+    "Structure/Structures/Brick House A.png",
+    "Structure/Structures/Brick House B.png",
+    "Structure/Structures/Paneled House A.png",
+    "Terrain/Rocks, Grasslands.png",
+    "Terrain/flowers.png",
+    "Terrain/mushrooms.png",
+    "Terrain/plants_summer.png",
+    "Terrain/trees_autumn.png",
+    "Terrain/trees_summer.png",
+    "Terrain/terrain_summer.png",
+    "Terrain/terrain_autumn.png"
+   ],
+   "modifications": "Découpage de cellules, rognage de la transparence, assemblage en atlas. Aucune retouche de pixels."
+  },
+  {
+   "pack": "[LPC] Items and game effects",
+   "authors": [
+    "Tuomo Untinen",
+    "Johannes Sjölund (Wulax)",
+    "Jetrel",
+    "Gwes",
+    "Daniel Eddeland",
+    "Jaidyn Reiman",
+    "Nila122",
+    "Lanea Zimmerman (Sharm)",
+    "ArtisticDude",
+    "Stephen Challener (Redshrike)",
+    "pennomi",
+    "laetissima",
+    "makrohn"
+   ],
+   "source": "https://opengameart.org/content/lpc-items-and-game-effects",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/images/LPC Items And Effects/",
+   "license": "GPL 3.0 (licence sous laquelle la copie téléchargée est redistribuée)",
+   "license_url": "https://www.gnu.org/licenses/gpl-3.0.html",
+   "credits_files": "licenses/lpc-items-and-effects-credits.txt",
+   "local_files": [
+    "assets/atlas/items.png (cadres i_*, fx_*)",
+    "assets/atlas/items.json",
+    "favicon.png (fragment rouge agrandi ×2)"
+   ],
+   "original_files": [
+    "LPC Items And Effects/effects.png",
+    "LPC Items And Effects/items1.png"
+   ],
+   "modifications": "Découpage de cellules et assemblage en atlas."
+  },
+  {
+   "pack": "[LPC] Signposts, graves, line cloths and scare crow",
+   "authors": [
+    "Tuomo Untinen et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-signposts-graves-line-cloths-and-scare-crow",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "GPL 3.0 (licence sous laquelle la copie téléchargée est redistribuée)",
+   "license_url": "https://www.gnu.org/licenses/gpl-3.0.html",
+   "local_files": [
+    "assets/atlas/items.png (cadres grave_cross, grave_cross_b, signpost, scarecrow)"
+   ],
+   "original_files": [
+    "LPC Signposts graves line cloths and scare crow/signpost-outsidestuff.png"
+   ],
+   "modifications": "Découpage de cellules et assemblage en atlas."
+  },
+  {
+   "pack": "Universal LPC Spritesheet Character Generator",
+   "authors": [
+    "voir assets/chars/CREDITS-characters.csv (auteurs fichier par fichier)"
+   ],
+   "source": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator",
+   "downloaded_from": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator (commit 4963a69795255fb15a934c47f478a8bdcf3668f5)",
+   "license": "CC-BY-SA 3.0 (certains calques aussi OGA-BY 3.0 / GPL 3.0 ; la tête de zombie et le corps musclé ne sont proposés qu’en CC-BY-SA 3.0 / GPL 3.0)",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "credits_files": "public/assets/chars/CREDITS-characters.csv",
+   "local_files": [
+    "assets/chars/player.png",
+    "assets/chars/rodeur.png",
+    "assets/chars/affame.png",
+    "assets/chars/brute.png",
+    "assets/chars/CREDITS-characters.csv"
+   ],
+   "original_files": "voir CREDITS-characters.csv",
+   "modifications": "Superposition des calques (comme le générateur), recoloration avec les palettes officielles du générateur (vêtements, cheveux, peau « zombie_green »), placement des animations dans une seule feuille."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_grass_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_0.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_grass_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_grass_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_1.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_grass_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_grass_002.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_2.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_grass_002.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactPlank_medium_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/chop_0.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactPlank_medium_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactPlank_medium_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/chop_1.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactPlank_medium_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/chop.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/chop_2.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/chop.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactMining_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/mine_0.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactMining_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactMining_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/mine_1.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactMining_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactMining_002.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/mine_2.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactMining_002.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/cloth1.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/pick_0.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/cloth1.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/handleSmallLeather.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/pick_1.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/handleSmallLeather.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Battle Sound Effects",
+   "authors": [
+    "Ogrebane"
+   ],
+   "source": "https://opengameart.org/content/battle-sound-effects",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-battle/battle_sound_effects/swish_2.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/swing_0.mp3"
+   ],
+   "original_files": [
+    "oga-battle/battle_sound_effects/swish_2.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Battle Sound Effects",
+   "authors": [
+    "Ogrebane"
+   ],
+   "source": "https://opengameart.org/content/battle-sound-effects",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-battle/battle_sound_effects/swish_3.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/swing_1.mp3"
+   ],
+   "original_files": [
+    "oga-battle/battle_sound_effects/swish_3.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "37 Hits/Punches",
+   "authors": [
+    "qubodup"
+   ],
+   "source": "https://opengameart.org/content/37-hitspunches",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-hits-punches/hits/hit05.mp3.flac)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/hit_0.mp3"
+   ],
+   "original_files": [
+    "oga-hits-punches/hits/hit05.mp3.flac"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "37 Hits/Punches",
+   "authors": [
+    "qubodup"
+   ],
+   "source": "https://opengameart.org/content/37-hitspunches",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-hits-punches/hits/hit10.mp3.flac)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/hit_1.mp3"
+   ],
+   "original_files": [
+    "oga-hits-punches/hits/hit10.mp3.flac"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "37 Hits/Punches",
+   "authors": [
+    "qubodup"
+   ],
+   "source": "https://opengameart.org/content/37-hitspunches",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-hits-punches/hits/hit17.mp3.flac)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/hit_2.mp3"
+   ],
+   "original_files": [
+    "oga-hits-punches/hits/hit17.mp3.flac"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Battle Sound Effects",
+   "authors": [
+    "Ogrebane"
+   ],
+   "source": "https://opengameart.org/content/battle-sound-effects",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-battle/battle_sound_effects/Bow.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/bow.mp3"
+   ],
+   "original_files": [
+    "oga-battle/battle_sound_effects/Bow.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Zombies Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/zombies-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-zombies/zombies/zombie-1.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/zgroan_0.mp3"
+   ],
+   "original_files": [
+    "oga-zombies/zombies/zombie-1.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Zombies Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/zombies-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-zombies/zombies/zombie-3.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/zgroan_1.mp3"
+   ],
+   "original_files": [
+    "oga-zombies/zombies/zombie-3.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Zombies Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/zombies-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-zombies/zombies/zombie-5.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/zgroan_2.mp3"
+   ],
+   "original_files": [
+    "oga-zombies/zombies/zombie-5.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Zombies Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/zombies-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-zombies/zombies/zombie-8.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/zgroan_3.mp3"
+   ],
+   "original_files": [
+    "oga-zombies/zombies/zombie-8.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Zombies Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/zombies-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-zombies/zombies/zombie-15.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/zattack.mp3"
+   ],
+   "original_files": [
+    "oga-zombies/zombies/zombie-15.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Zombies Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/zombies-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-zombies/zombies/zombie-20.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/zdeath.mp3"
+   ],
+   "original_files": [
+    "oga-zombies/zombies/zombie-20.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Interface Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/interface-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/interface-sounds/click_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/click.mp3"
+   ],
+   "original_files": [
+    "interface-sounds/click_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Interface Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/interface-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/interface-sounds/open_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/open.mp3"
+   ],
+   "original_files": [
+    "interface-sounds/open_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Interface Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/interface-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/interface-sounds/close_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/close.mp3"
+   ],
+   "original_files": [
+    "interface-sounds/close_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Interface Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/interface-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/interface-sounds/error_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/error.mp3"
+   ],
+   "original_files": [
+    "interface-sounds/error_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Interface Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/interface-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/interface-sounds/confirmation_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/confirm.mp3"
+   ],
+   "original_files": [
+    "interface-sounds/confirmation_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/metalClick.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/craft.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/metalClick.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactPlank_medium_003.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/build.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactPlank_medium_003.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-rpg-pack/RPG Sound Pack/NPC/beetle/bite-small.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/eat.mp3"
+   ],
+   "original_files": [
+    "oga-rpg-pack/RPG Sound Pack/NPC/beetle/bite-small.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/doorOpen_1.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/door_open.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/doorOpen_1.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/doorClose_1.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/door_close.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/doorClose_1.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/creak1.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/chest.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/creak1.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactBell_heavy_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/bell.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactBell_heavy_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Music Jingles",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/music-jingles",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/music-jingles/jingles_PIZZI04.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/objective.mp3"
+   ],
+   "original_files": [
+    "music-jingles/jingles_PIZZI04.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Music Jingles",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/music-jingles",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/music-jingles/jingles_PIZZI10.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/victory.mp3"
+   ],
+   "original_files": [
+    "music-jingles/jingles_PIZZI10.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Music Jingles",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/music-jingles",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/music-jingles/jingles_PIZZI08.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/defeat.mp3"
+   ],
+   "original_files": [
+    "music-jingles/jingles_PIZZI08.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "37 Hits/Punches",
+   "authors": [
+    "qubodup"
+   ],
+   "source": "https://opengameart.org/content/37-hitspunches",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-hits-punches/hits/hit22.mp3.flac)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/hurt.mp3"
+   ],
+   "original_files": [
+    "oga-hits-punches/hits/hit22.mp3.flac"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fireplace Sound Loop",
+   "authors": [
+    "PagDev"
+   ],
+   "source": "https://opengameart.org/content/fireplace-sound-loop",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (assets/sounds/Fireplace Sound loop/fire.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/fire_loop.mp3"
+   ],
+   "original_files": [
+    "Fireplace Sound loop/fire.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "RPG – The Secret Within the Silent Woods",
+   "authors": [
+    "hitctrl"
+   ],
+   "source": "https://opengameart.org/content/rpg-the-secret-within-the-woods",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (assets/sounds/RPG The Secret Within the Woods/RPG - The Secret Within The Silent Woods.ogg)",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/music_day.mp3"
+   ],
+   "original_files": [
+    "RPG The Secret Within the Woods/RPG - The Secret Within The Silent Woods.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "RPG – The Graveyard",
+   "authors": [
+    "hitctrl"
+   ],
+   "source": "https://opengameart.org/content/rpg-the-graveyard",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (assets/sounds/RPG The Graveyard/RPG_-_The_Graveyard.ogg)",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/music_night.mp3"
+   ],
+   "original_files": [
+    "RPG The Graveyard/RPG_-_The_Graveyard.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "RPG Title Screen Music Pack — 05 So it begins",
+   "authors": [
+    "Alexei Galar"
+   ],
+   "source": "https://opengameart.org/content/rpg-title-screen-music-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (assets/sounds/RPG Title Screen Music Pack/Alexei Galar - RPG Title Screen Music Pack - 05 So it begins.ogg)",
+   "license": "CC-BY 4.0",
+   "local_files": [
+    "assets/audio/music_title.mp3"
+   ],
+   "original_files": [
+    "RPG Title Screen Music Pack/Alexei Galar - RPG Title Screen Music Pack - 05 So it begins.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  }
+ ],
+ "uncovered_files": []
+}

@@ -57,6 +57,8 @@ export class Game {
   victorySeen = false;
   harvestCd = 0;
   spawnTimer = 0;
+  /** demi-dimensions de la vue caméra (px), fournies par le rendu */
+  view = { hw: 15 * TILE, hh: 9 * TILE };
   openContainer: { kind: 'obj' | 'building' | 'bag'; id: number } | null = null;
 
   constructor(world: World, seed: number) {
@@ -493,7 +495,7 @@ export class Game {
   private attack(): void {
     const p = this.player;
     const wd = this.weaponDef();
-    const w = wd?.weapon ?? { damage: 4, reach: 32, cooldown: 0.45, stamina: 8, knockback: 70, anim: 'slash' as const };
+    const w = wd?.weapon ?? { damage: 6, reach: 32, cooldown: 0.42, stamina: 8, knockback: 80, anim: 'slash' as const };
     // sans ennemi à portée, le bouton d'attaque sert aussi à récolter
     const enemyNear = enemiesNear(this, p.x, p.y, (w.ranged ? w.reach : w.reach + 40)).some((e) => e.dying <= 0);
     if (!enemyNear && this.target && this.target.kind === 'harvest') {
@@ -563,7 +565,7 @@ export class Game {
     const p = this.player;
     if (p.dead) return;
     const wd = this.weaponDef();
-    const w = wd?.weapon ?? { damage: 4, reach: 32, knockback: 70 };
+    const w = wd?.weapon ?? { damage: 6, reach: 32, knockback: 80 };
     const tired = p.stamina <= 1;
     let hit = 0;
     for (const e of enemiesNear(this, p.x, p.y, w.reach + 30)) {

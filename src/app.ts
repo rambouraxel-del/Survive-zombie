@@ -1,0 +1,615 @@
+// Contrôleur de l'application : écrans, cycle de partie, panneaux, sauvegarde.
+import { TILE } from './config/balance';
+import { AudioManager } from './audio/audio';
+import { BUILDING_BY_ID } from './data/buildings';
+import { Controls } from './input/controls';
+import type { WorldScene, SceneHost } from './render/WorldScene';
+import { deserialize, serialize, validateSave } from './save/serialize';
+import { clearSaves, hasSave, loadSave, writeSave } from './save/storage';
+import { loadSettings, saveSettings, type Settings } from './settings';
+import { canPlace, place, useSlot } from './sim/actions';
+import { Game } from './sim/game';
+import type { GameEvent, InputState } from './sim/types';
+import { $, clear, h } from './ui/dom';
+import { Hud } from './ui/hud';
+import { icon } from './ui/icons';
+import * as P from './ui/panels';
+import type { Station } from './data/items';
+
+type Overlay = null | 'title' | 'gate' | 'death' | 'victory' | 'loading';
+
+export class App implements P.PanelHost, SceneHost {
+  settings: Settings = loadSettings();
+  audio = new AudioManager(this.settings);
+  controls: Controls;
+  hud: Hud | null = null;
+  scene: WorldScene | null = null;
+  private g: Game | null = null;
+  private modal: string | null = null;
+  private overlay: Overlay = 'loading';
+  private hidden = false;
+  private saving = false;
+  private titleGame: Game | null = null;
+  private fpsAvg = 60;
+  private debugT = 0;
+  private fireT = 0;
+
+  constructor() {
+    this.controls = new Controls(document.body, {
+      onQuickSlot: (i) => this.quickSlot(i),
+      onShortcut: (n) => this.shortcut(n),
+      isBlocked: () => this.isSimPaused(),
+    });
+    this.bindStaticUi();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') this.onHidden();
+      else this.onVisible();
+    });
+    window.addEventListener('pagehide', () => this.onHidden());
+    window.addEventListener('keydown', (e) => this.onPlacementKey(e));
+    this.showLoading();
+  }
+
+  get game(): Game {
+    return this.g ?? this.titleGame!;
+  }
+
+  // ------------------------------------------------------------ SceneHost
+  isSimPaused(): boolean {
+    return !this.g || !!this.modal || this.overlay !== null || this.hidden || !!this.scene?.placing || !!this.scene?.managing;
+  }
+
+  pollInput(): InputState {
+    return this.controls.poll();
+  }
+
+  reduceShake(): boolean {
+    return this.settings.reduceShake;
+  }
+
+  debug(): boolean {
+    return this.settings.debug;
+  }
+
+  onLoadProgress(p: number): void {
+    const bar = document.querySelector<HTMLElement>('#loadbar > div');
+    if (bar) bar.style.width = `${Math.round(p * 100)}%`;
+  }
+
+  onSceneReady(scene: WorldScene): void {
+    this.scene = scene;
+    this.audio.attach(scene.sound);
+    this.hud = new Hud();
+    this.hud.onQuickSlot = (i) => this.quickSlot(i);
+    void this.showTitle();
+  }
+
+  onGameEvent(e: GameEvent): void {
+    const g = this.g;
+    if (!g) return;
+    switch (e.type) {
+      case 'sound': {
+        const d = e.x !== undefined && e.y !== undefined ? Math.hypot(e.x - g.player.x, e.y - g.player.y) : 0;
+        this.audio.play(e.key, d);
+        break;
+      }
+      case 'toast':
+        this.toast(e.text, e.kind);
+        break;
+      case 'objective':
+        this.hud?.forceRefresh();
+        break;
+      case 'save':
+        void this.saveNow(e.reason);
+        break;
+      case 'ui':
+        this.openPanel(e.panel, e.ref);
+        break;
+      case 'death':
+        this.showDeath(e.reason, e.lost, e.hasBag, e.atBed);
+        break;
+      case 'victory':
+        this.showVictory();
+        break;
+      default:
+        break;
+    }
+  }
+
+  onFrame(dt: number, fps: number): void {
+    const g = this.g;
+    if (!g) {
+      // écran titre : lent travelling sur une forêt générée
+      if (this.scene && this.titleGame) {
+        const cam = this.scene.cameras.main;
+        cam.scrollX += dt * 12;
+        if (cam.scrollX > this.titleGame.world.w * TILE - cam.width) cam.scrollX = 0;
+      }
+      return;
+    }
+    this.fpsAvg = this.fpsAvg * 0.95 + fps * 0.05;
+    this.hud?.update(g, dt, this.settings.showHints);
+    // musique selon le moment
+    const night = g.isDark() || g.final.state === 'active';
+    this.audio.setMusic(night ? 'music_night' : 'music_day');
+    this.fireT -= dt;
+    if (this.fireT <= 0) {
+      this.fireT = 0.25;
+      let best = 99999;
+      for (const b of g.world.buildings.values()) {
+        if (b.type !== 'campfire') continue;
+        const c = g.world.buildingCenter(b);
+        best = Math.min(best, Math.hypot(c.x - g.player.x, c.y - g.player.y));
+      }
+      this.audio.setFireLevel(Math.max(0, 1 - best / (6 * TILE)));
+    }
+    if (this.scene?.placing) this.updatePlaceBar();
+    const dbg = $('#debug');
+    dbg.classList.toggle('hidden', !this.settings.debug);
+    this.debugT -= dt;
+    if (this.settings.debug && this.debugT <= 0) {
+      this.debugT = 0.25;
+      const st = this.scene?.stats;
+      const tx = Math.floor(g.player.x / TILE);
+      const ty = Math.floor(g.player.y / TILE);
+      dbg.textContent = [
+        `FPS ${this.fpsAvg.toFixed(0)}`,
+        `Ennemis actifs ${g.enemies.length} (dessinés ${st?.enemiesDrawn ?? 0})`,
+        `Objets affichés ${st?.objects ?? 0}`,
+        `Graine ${g.world.seed}`,
+        `Tuile ${tx},${ty} · ${g.world.zoneAt(tx, ty)}`,
+        `Jour ${g.day} t=${g.dayTime.toFixed(0)} · ${g.phase()}`,
+        `Horde ${g.assault ? `${g.assault.spawned}/${g.assault.total}${g.assault.done ? ' ✓' : ''}` : '-'}`,
+        `Final ${g.final.state} v${g.final.wave}`,
+      ].join('\n');
+    }
+  }
+
+  onPlacementPointer(tx: number, ty: number): void {
+    if (!this.scene?.placing) return;
+    this.scene.placing.tx = tx;
+    this.scene.placing.ty = ty;
+  }
+
+  onManagePointer(tx: number, ty: number): void {
+    const b = this.g?.world.buildingAtTile(tx, ty);
+    if (b) this.openPanel('manage', String(b.id));
+  }
+
+  // ------------------------------------------------------------ interface statique
+  private bindStaticUi(): void {
+    $('#m-inv').addEventListener('click', () => this.shortcut('inventory'));
+    $('#m-craft').addEventListener('click', () => this.shortcut('craft'));
+    $('#m-build').addEventListener('click', () => this.shortcut('build'));
+    $('#m-map').addEventListener('click', () => this.shortcut('map'));
+    $('#m-pause').addEventListener('click', () => this.shortcut('pause'));
+    $('#place-cancel').addEventListener('click', () => this.stopPlacement());
+    $('#place-ok').addEventListener('click', () => this.confirmPlacement());
+    ($('#place-rot') as HTMLButtonElement).disabled = true;
+    if (!matchMedia('(pointer: coarse)').matches) document.body.classList.add('no-touch');
+  }
+
+  private shortcut(n: 'inventory' | 'craft' | 'build' | 'map' | 'pause'): void {
+    if (!this.g || this.overlay) return;
+    if (this.scene?.placing || this.scene?.managing) {
+      if (n === 'pause') this.stopPlacement();
+      return;
+    }
+    if (this.modal) {
+      this.closePanel();
+      if (n === 'pause') return;
+    }
+    this.sfx('open');
+    this.openPanel(n === 'inventory' ? 'inventory' : n);
+  }
+
+  private quickSlot(i: number): void {
+    const g = this.g;
+    if (!g || this.isSimPaused()) return;
+    if (!g.player.inv[i]) {
+      this.openPanel('inventory');
+      return;
+    }
+    const r = useSlot(g, i);
+    if (!r.ok && r.reason && r.reason !== 'Pas faim') g.toast(r.reason, 'info');
+    this.hud?.forceRefresh();
+  }
+
+  // ------------------------------------------------------------ panneaux
+  openPanel(name: string, ref?: string): void {
+    const layer = $('#panel-layer');
+    if (name === 'none' || (!this.g && !['options', 'help', 'credits'].includes(name))) {
+      this.closePanel();
+      return;
+    }
+    let el: HTMLElement;
+    switch (name) {
+      case 'inventory':
+        el = P.inventoryPanel(this);
+        break;
+      case 'craft':
+        el = P.craftPanel(this, (ref as Station | 'all') ?? 'all');
+        break;
+      case 'build':
+        el = P.buildPanel(this);
+        break;
+      case 'manage':
+        el = P.managePanel(this, Number(ref));
+        break;
+      case 'container':
+        el = P.containerPanel(this);
+        break;
+      case 'map':
+        el = P.mapPanel(this);
+        break;
+      case 'pause':
+        el = P.pausePanel(this);
+        break;
+      case 'options':
+        el = P.optionsPanel(this);
+        break;
+      case 'help':
+        el = P.helpPanel(this);
+        break;
+      case 'credits':
+        el = P.creditsPanel(this);
+        break;
+      case 'note':
+        el = P.notePanel(this, ref ?? '');
+        break;
+      case 'bed':
+        el = P.bedPanel(this);
+        break;
+      case 'sanctuary':
+        el = P.sanctuaryPanel(this);
+        break;
+      default:
+        return;
+    }
+    this.controls.reset();
+    this.modal = name;
+    clear(layer);
+    layer.append(el);
+    layer.classList.remove('hidden');
+    layer.onclick = (e) => {
+      if (e.target === layer) this.closePanel();
+    };
+  }
+
+  closePanel(): void {
+    const layer = $('#panel-layer');
+    clear(layer);
+    layer.classList.add('hidden');
+    if (this.modal === 'container' && this.g) this.g.openContainer = null;
+    this.modal = null;
+    this.controls.reset();
+    this.hud?.forceRefresh();
+  }
+
+  confirm(text: string, ok: string, onOk: () => void): void {
+    const prev = this.modal;
+    const layer = $('#panel-layer');
+    clear(layer);
+    layer.append(P.confirmPanel(this, text, ok, () => { onOk(); }, () => (prev && this.g ? this.openPanel(prev) : this.closePanel())));
+    layer.classList.remove('hidden');
+    this.modal = 'confirm';
+  }
+
+  sfx(key: string): void {
+    this.audio.play(key);
+  }
+
+  applySettings(): void {
+    saveSettings(this.settings);
+    this.audio.refreshVolumes();
+  }
+
+  // ------------------------------------------------------------ construction
+  startPlacement(type: string): void {
+    const g = this.g;
+    if (!g || !this.scene) return;
+    this.closePanel();
+    const d = BUILDING_BY_ID[type];
+    const tx = Math.floor((g.player.x + g.player.aimX * 2 * TILE) / TILE - (d.w - 1) / 2);
+    const ty = Math.floor((g.player.y + g.player.aimY * 2 * TILE) / TILE - (d.h - 1) / 2);
+    this.scene.placing = { type, tx, ty };
+    this.scene.managing = false;
+    this.controls.reset();
+    $('#controls').classList.add('hidden');
+    $('#placebar').classList.remove('hidden');
+    $('#place-ok').classList.remove('hidden');
+    $('#place-name').textContent = `Placer : ${d.name}`;
+    this.updatePlaceBar();
+  }
+
+  startManage(): void {
+    if (!this.scene) return;
+    this.closePanel();
+    this.scene.placing = null;
+    this.scene.managing = true;
+    this.controls.reset();
+    $('#controls').classList.add('hidden');
+    $('#placebar').classList.remove('hidden');
+    $('#place-ok').classList.add('hidden');
+    $('#place-name').textContent = 'Gérer : touchez une construction encadrée';
+    $('#place-reason').textContent = '';
+    ($('#place-cancel') as HTMLButtonElement).textContent = 'Terminer';
+  }
+
+  private updatePlaceBar(): void {
+    const g = this.g;
+    const pl = this.scene?.placing;
+    if (!g || !pl) return;
+    const c = canPlace(g, pl.type, pl.tx, pl.ty);
+    const r = $('#place-reason');
+    r.textContent = c.ok ? 'Emplacement valide' : c.reason ?? 'Invalide';
+    r.className = c.ok ? 'ok' : 'bad';
+    ($('#place-ok') as HTMLButtonElement).disabled = !c.ok;
+  }
+
+  private confirmPlacement(): void {
+    const g = this.g;
+    const pl = this.scene?.placing;
+    if (!g || !pl) return;
+    const r = place(g, pl.type, pl.tx, pl.ty);
+    if (!r.ok) {
+      g.toast(r.reason ?? 'Placement impossible', 'warn');
+      return;
+    }
+    // on enchaîne tant que les ressources suffisent (pratique pour les murs)
+    const d = BUILDING_BY_ID[pl.type];
+    const again = Object.entries(d.cost).every(([id, n]) => g.player.inv.reduce((s, x) => s + (x && x.id === id ? x.qty : 0), 0) >= n);
+    if (!again || !['palisade', 'spikes', 'lamp', 'trap'].includes(pl.type)) this.stopPlacement();
+  }
+
+  stopPlacement(): void {
+    if (!this.scene) return;
+    this.scene.placing = null;
+    this.scene.managing = false;
+    ($('#place-cancel') as HTMLButtonElement).textContent = 'Annuler';
+    $('#placebar').classList.add('hidden');
+    if (this.g && !this.overlay) $('#controls').classList.remove('hidden');
+    this.controls.reset();
+  }
+
+  private onPlacementKey(e: KeyboardEvent): void {
+    const pl = this.scene?.placing;
+    if (!pl && !this.scene?.managing) return;
+    if (e.code === 'Escape') {
+      e.stopImmediatePropagation();
+      this.stopPlacement();
+      return;
+    }
+    if (!pl) return;
+    const mv: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], KeyA: [-1, 0], KeyD: [1, 0], KeyW: [0, -1], KeyS: [0, 1] };
+    if (mv[e.code]) {
+      pl.tx += mv[e.code][0];
+      pl.ty += mv[e.code][1];
+      e.preventDefault();
+    } else if (e.code === 'Enter' || e.code === 'Space') {
+      e.preventDefault();
+      this.confirmPlacement();
+    }
+  }
+
+  // ------------------------------------------------------------ messages
+  toast(text: string, kind: 'info' | 'warn' | 'good' = 'info'): void {
+    const box = $('#toasts');
+    const t = h('div', { class: `toast ${kind}`, text });
+    box.append(t);
+    while (box.children.length > 4) box.firstChild?.remove();
+    setTimeout(() => t.classList.add('out'), 3600);
+    setTimeout(() => t.remove(), 4100);
+  }
+
+  // ------------------------------------------------------------ écrans
+  private screen(el: HTMLElement | null, overlay: Overlay): void {
+    const layer = $('#screen-layer');
+    clear(layer);
+    if (el) layer.append(el);
+    this.overlay = overlay;
+    this.controls.reset();
+    const inGame = !!this.g && overlay !== 'title' && overlay !== 'loading';
+    $('#hud').classList.toggle('hidden', !inGame);
+    $('#controls').classList.toggle('hidden', !inGame || overlay !== null);
+  }
+
+  private showLoading(): void {
+    this.screen(h('div', { class: 'screen title' },
+      h('h1', { text: 'Les Bois de Cendre' }),
+      h('div', { class: 'sub', text: 'Chargement des ressources…' }),
+      h('div', { id: 'loadbar' }, h('div', {}))), 'loading');
+  }
+
+  async showTitle(): Promise<void> {
+    this.stopPlacement();
+    this.closePanel();
+    this.g = null;
+    if (this.scene) {
+      this.titleGame = Game.newGame(Math.floor(Math.random() * 1e9));
+      this.scene.setGame(this.titleGame);
+      this.scene.cameras.main.stopFollow();
+      this.scene.cameras.main.centerOn(this.titleGame.player.x, this.titleGame.player.y - 200);
+    }
+    this.audio.setMusic('music_title');
+    this.audio.setFireLevel(0);
+    const saved = await hasSave();
+    const art = h('div', { class: 'titleart' }, icon('world:tree_pine_a', 72), icon('world:campfire_1', 40), icon('world:seal_stone', 56), icon('world:tree_dead', 72));
+    const list = h('div', { class: 'menu-list' });
+    if (saved) list.append(h('button', { class: 'btn primary', text: 'Continuer', onclick: () => void this.continueGame() }));
+    list.append(
+      h('button', { class: 'btn' + (saved ? '' : ' primary'), text: 'Nouvelle partie', onclick: () => {
+        if (saved) this.confirm('Une sauvegarde existe. La nouvelle partie la remplacera (la précédente reste en secours jusqu’à la prochaine sauvegarde). Continuer ?', 'Nouvelle partie', () => { this.closePanel(); this.newGame(); });
+        else this.newGame();
+      } }),
+      h('button', { class: 'btn', text: 'Importer une sauvegarde', onclick: () => this.importSave() }),
+      h('button', { class: 'btn', text: 'Options', onclick: () => this.openPanel('options') }),
+      h('button', { class: 'btn', text: 'Commandes et règles', onclick: () => this.openPanel('help') }),
+      h('button', { class: 'btn', text: 'Crédits', onclick: () => this.openPanel('credits') }),
+    );
+    const land = matchMedia('(orientation: portrait)').matches ? h('div', { class: 'hint-land', text: 'Conseil : le mode paysage offre la meilleure vue. Le portrait reste jouable.' }) : null;
+    this.screen(h('div', { class: 'screen title' }, art, h('h1', { text: 'Les Bois de Cendre' }),
+      h('div', { class: 'sub', text: 'Survie et construction dans une forêt médiévale infestée de morts. Retrouvez les trois fragments du sceau et libérez la forêt.' }),
+      list, land), 'title');
+  }
+
+  newGame(): void {
+    const seed = (Math.random() * 2 ** 31) >>> 0;
+    const g = Game.newGame(seed);
+    this.startGame(g);
+    this.gate('Un ancien camp abandonné', 'Vous émergez des bois et découvrez un camp déserté. Le soleil est encore haut : récoltez, fabriquez un outil et préparez-vous avant la nuit. L’objectif en haut de l’écran vous guide.', 'Commencer');
+    void this.saveNow('start');
+  }
+
+  async continueGame(): Promise<void> {
+    const res = await loadSave();
+    if (!res.data) {
+      this.toast(res.error ?? 'Aucune sauvegarde trouvée.', 'warn');
+      return;
+    }
+    let g: Game;
+    try {
+      g = deserialize(res.data);
+    } catch (e) {
+      this.toast(`Sauvegarde illisible : ${(e as Error).message}`, 'warn');
+      return;
+    }
+    this.startGame(g);
+    const msg = res.usedBackup ? `La dernière sauvegarde était invalide (${res.error}). La sauvegarde de secours précédente a été chargée.` : `Jour ${g.day} · ${Math.round(g.world.exploredRatio() * 100)} % exploré · ${g.fragmentsFound()}/3 fragments.`;
+    this.gate('Partie chargée', msg, 'Je suis prêt');
+  }
+
+  private startGame(g: Game): void {
+    this.titleGame = null;
+    this.g = g;
+    this.scene?.setGame(g);
+    this.hud?.forceRefresh();
+    $('#objective').classList.remove('collapsed');
+  }
+
+  /** La simulation ne reprend qu'après confirmation du joueur. */
+  private gate(title: string, text: string, btn: string): void {
+    this.screen(h('div', { class: 'screen dim' }, h('div', { class: 'card' },
+      h('h2', { text: title }), h('p', { text }),
+      h('div', { class: 'actions', style: { justifyContent: 'center' } }, h('button', { class: 'btn primary', text: btn, onclick: () => this.screen(null, null) })))), 'gate');
+    $('#hud').classList.remove('hidden');
+  }
+
+  private showDeath(reason: string, lost: number, hasBag: boolean, atBed: boolean): void {
+    const g = this.g!;
+    setTimeout(() => {
+      if (this.g !== g) return;
+      this.screen(h('div', { class: 'screen dim' }, h('div', { class: 'card' },
+        h('h2', { text: 'Vous êtes tombé' }),
+        h('p', { text: reason }),
+        h('p', { class: 'note-muted', text: hasBag ? `${lost} objet(s) sont restés dans un sac à l’endroit de votre chute (indiqué sur la carte). Vos objectifs et fragments sont conservés.` : 'Vous n’avez rien perdu. Vos objectifs et fragments sont conservés.' }),
+        h('p', { class: 'note-muted', text: atBed ? 'Vous réapparaîtrez près de votre paillasse, protégé quelques secondes.' : 'Vous réapparaîtrez au camp de départ, protégé quelques secondes. Construisez une paillasse pour changer ce point.' }),
+        h('div', { class: 'actions', style: { justifyContent: 'center' } }, h('button', { class: 'btn primary', text: 'Réapparaître', onclick: () => { g.respawn(); this.screen(null, null); } })))), 'death');
+    }, 1400);
+  }
+
+  private showVictory(): void {
+    const g = this.g!;
+    g.victorySeen = true;
+    const s = g.stats;
+    const built = Object.values(s.built).reduce((a, b) => a + b, 0);
+    const min = Math.round(s.playTime / 60);
+    this.screen(h('div', { class: 'screen dim' }, h('div', { class: 'card' },
+      h('h2', { text: 'La forêt est libérée' }),
+      h('p', { text: 'Le sceau du Loup brille à nouveau. Les morts retournent à la terre et le silence revient sous les arbres.' }),
+      h('div', { class: 'statsgrid' },
+        h('span', { text: 'Jours survécus' }), h('b', { text: String(g.day) }),
+        h('span', { text: 'Morts' }), h('b', { text: String(s.deaths) }),
+        h('span', { text: 'Ennemis vaincus' }), h('b', { text: String(s.kills) }),
+        h('span', { text: 'Exploration' }), h('b', { text: `${Math.round(g.world.exploredRatio() * 100)} %` }),
+        h('span', { text: 'Constructions' }), h('b', { text: String(built) }),
+        h('span', { text: 'Notes lues' }), h('b', { text: `${s.notesRead.length}/8` }),
+        h('span', { text: 'Temps de jeu' }), h('b', { text: `${min} min` }),
+      ),
+      h('div', { class: 'actions', style: { justifyContent: 'center' } },
+        h('button', { class: 'btn primary', text: 'Continuer à explorer', onclick: () => { this.screen(null, null); void this.saveNow('victory'); } }),
+        h('button', { class: 'btn', text: 'Nouvelle partie', onclick: () => this.confirm('Commencer une nouvelle partie ? La partie actuelle sera remplacée.', 'Nouvelle partie', () => { this.closePanel(); this.newGame(); }) }),
+      ))), 'victory');
+  }
+
+  quitToTitle(): void {
+    void this.saveNow('quit').then(() => this.showTitle());
+  }
+
+  // ------------------------------------------------------------ sauvegarde
+  async saveNow(reason: string): Promise<void> {
+    const g = this.g;
+    if (!g || this.saving) return;
+    if (g.player.dead && reason !== 'quit') return;
+    this.saving = true;
+    try {
+      const res = await writeSave(serialize(g));
+      if (!res.ok) this.toast(`Échec de la sauvegarde : ${res.error}`, 'warn');
+      else if (reason === 'manual') this.toast('Partie sauvegardée.', 'good');
+    } catch (e) {
+      this.toast(`Échec de la sauvegarde : ${(e as Error).message}`, 'warn');
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  exportSave(): void {
+    if (!this.g) return;
+    const data = JSON.stringify(serialize(this.g));
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = h('a', { href: url, download: `bois-de-cendre-jour${this.g.day}.json` });
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    this.toast('Sauvegarde exportée (fichier JSON).', 'good');
+  }
+
+  importSave(): void {
+    const inp = h('input', { type: 'file', accept: 'application/json,.json' }) as HTMLInputElement;
+    inp.addEventListener('change', async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      try {
+        const data = JSON.parse(await f.text());
+        const v = validateSave(data);
+        if (!v.ok) {
+          this.toast(v.error, 'warn');
+          return;
+        }
+        this.confirm('Importer ce fichier remplacera la partie en cours (la sauvegarde actuelle devient la sauvegarde de secours). Continuer ?', 'Importer', async () => {
+          this.closePanel();
+          const g = deserialize(v.data);
+          const res = await writeSave(v.data);
+          if (!res.ok) this.toast(`Import chargé mais non enregistré : ${res.error}`, 'warn');
+          this.startGame(g);
+          this.gate('Sauvegarde importée', `Jour ${g.day} · ${g.fragmentsFound()}/3 fragments.`, 'Je suis prêt');
+        });
+      } catch {
+        this.toast('Fichier illisible : ce n’est pas un JSON valide.', 'warn');
+      }
+    });
+    inp.click();
+  }
+
+  async resetAll(): Promise<void> {
+    await clearSaves();
+  }
+
+  // ------------------------------------------------------------ arrière-plan
+  private onHidden(): void {
+    if (this.hidden) return;
+    this.hidden = true;
+    this.controls.reset();
+    if (this.g) void this.saveNow('background');
+  }
+
+  private onVisible(): void {
+    if (!this.hidden) return;
+    this.hidden = false;
+    this.controls.reset();
+    // pas de simulation pendant l'absence : on redemande confirmation
+    if (this.g && this.overlay === null && !this.modal) this.gate('Pause', 'Le jeu était en arrière-plan. Rien ne s’est passé pendant votre absence.', 'Reprendre');
+  }
+}

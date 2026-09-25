@@ -48,7 +48,7 @@ describe('fabrication', () => {
     expect(countItem(g.player.inv, 'wood')).toBe(2);
     expect(countItem(g.player.inv, 'stone')).toBe(1);
     expect(countItem(g.player.inv, 'fiber')).toBe(0);
-    expect(countItem(g.player.inv, 'stone_axe')).toBe(1);
+    expect(g.player.equip.tool?.id).toBe('stone_axe'); // équipée automatiquement
   });
 
   it('refuse sans ressources ou sans station, sans rien consommer', () => {

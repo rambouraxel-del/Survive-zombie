@@ -38,6 +38,16 @@ export function craft(g: Game, recipeId: string): Check {
   addItem(test, r.output, r.qty);
   g.player.inv = test; // validation en une seule fois
   g.stats.crafted[r.output] = (g.stats.crafted[r.output] ?? 0) + r.qty;
+  // premier outil / arme / protection : équipé automatiquement si l'emplacement est libre
+  const slot = item(r.output).slot;
+  if (slot && !g.player.equip[slot]) {
+    const idx = g.player.inv.findIndex((s) => s && s.id === r.output);
+    if (idx >= 0) {
+      g.player.equip[slot] = g.player.inv[idx];
+      g.player.inv[idx] = null;
+      g.toast(`${item(r.output).name} équipé(e).`, 'info');
+    }
+  }
   g.emit({ type: 'sound', key: 'craft' });
   g.toast(`Fabriqué : ${r.qty > 1 ? `${r.qty} × ` : ''}${item(r.output).name}`, 'good');
   return { ok: true };

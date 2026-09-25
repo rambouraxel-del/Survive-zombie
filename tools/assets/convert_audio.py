@@ -1,7 +1,7 @@
 """Convertit les sons retenus en MP3 (compatibles Safari iOS / Chrome Android).
 
 Seule opération : changement de format (et coupe de durée pour les musiques
-n'est PAS appliquée). Usage :
+non appliquée). Usage :
   python3 tools/assets/convert_audio.py <dossier_sources> public/assets/audio
   <dossier_sources>/sfx = clone de https://github.com/Mcamento8/open-game-sfx-index
   <dossier_sources>/fv  = clone de https://github.com/tchx84/FreedomValley
@@ -10,12 +10,7 @@ import os
 import subprocess
 import sys
 
-import imageio_ffmpeg
 
-SRC, OUT = sys.argv[1], sys.argv[2]
-FF = imageio_ffmpeg.get_ffmpeg_exe()
-SFX = os.path.join(SRC, 'sfx/audio')
-FVS = os.path.join(SRC, 'fv/assets/sounds')
 
 SOUNDS = {
     # clé: (fichier source, qualité)
@@ -68,11 +63,16 @@ MUSIC = {
 
 
 def conv(src, dst, bitrate):
+    import imageio_ffmpeg
+    FF = imageio_ffmpeg.get_ffmpeg_exe()
     subprocess.run([FF, '-y', '-loglevel', 'error', '-i', src, '-ac', '1' if bitrate == '64k' else '2',
                     '-b:a', bitrate, dst], check=True)
 
 
 if __name__ == '__main__':
+    SRC, OUT = sys.argv[1], sys.argv[2]
+    SFX = os.path.join(SRC, 'sfx/audio')
+    FVS = os.path.join(SRC, 'fv/assets/sounds')
     os.makedirs(OUT, exist_ok=True)
     for k, f in SOUNDS.items():
         conv(os.path.join(SFX, f), os.path.join(OUT, k + '.mp3'), '64k')

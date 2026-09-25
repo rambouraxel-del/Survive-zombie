@@ -4,13 +4,14 @@ generator's own palette definitions, and frame placement are performed."""
 import json, os, subprocess, sys
 from PIL import Image
 
-REPO = os.path.join(os.path.dirname(__file__), 'src/lpcgen')
-OUT = sys.argv[1]
+# usage : python3 compose_characters.py <clone ULPC> <dossier_sortie>
+REPO = sys.argv[1] if __name__ == '__main__' else ''
+OUT = sys.argv[2] if __name__ == '__main__' else ''
 F = 64
 ANIMS = {  # name: (cols, rows)
     'walk': (9, 4), 'slash': (6, 4), 'thrust': (8, 4), 'shoot': (13, 4), 'hurt': (6, 1),
 }
-PALS = {k: json.load(open(os.path.join(REPO, f'palette_definitions/{k}/{k}_ulpc.json'))) for k in ('body', 'cloth', 'hair')}
+PALS = {}
 BASE = {'body': 'light', 'cloth': 'white', 'hair': 'orange'}
 
 def ensure(path):
@@ -92,8 +93,10 @@ CHARS = {
 }
 
 if __name__ == '__main__':
+    for k in ('body', 'cloth', 'hair'):
+        PALS[k] = json.load(open(os.path.join(REPO, f'palette_definitions/{k}/{k}_ulpc.json')))
     os.makedirs(OUT, exist_ok=True)
-    only = sys.argv[2:] or list(CHARS)
+    only = sys.argv[3:] or list(CHARS)
     allmeta = {}
     for n in only:
         layers, anims = CHARS[n]

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#16120e" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Les Bois de Cendre — survie et construction dans une forêt médiévale infestée de zombies. Jouable au téléphone." />
+    <title>Les Bois de Cendre</title>
+    <link rel="icon" type="image/png" href="favicon.png" />
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="ui">
+      <!-- HUD -->
+      <div id="hud" class="hidden">
+        <div id="bars">
+          <div class="bar" id="bar-hp"><span class="lbl">PV</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
+          <div class="bar" id="bar-hunger"><span class="lbl">Faim</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
+          <div class="bar" id="bar-stamina"><span class="lbl">Endu.</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
+          <div id="daybox"><span id="dayname"></span><div id="daytrack"><div id="dayfill"></div></div></div>
+          <div id="equipbox"></div>
+        </div>
+        <div id="objective" role="status">
+          <button id="obj-toggle" aria-label="Replier ou déplier l’objectif"><span id="obj-title"></span></button>
+          <div id="obj-detail"><div id="obj-progress"></div><div id="obj-hint"></div></div>
+        </div>
+        <div id="menu-buttons">
+          <button class="mbtn" id="m-inv" aria-label="Sac"><span class="mico"></span><span class="mlbl">Sac</span></button>
+          <button class="mbtn" id="m-craft" aria-label="Fabriquer"><span class="mico"></span><span class="mlbl">Fabriquer</span></button>
+          <button class="mbtn" id="m-build" aria-label="Construire"><span class="mico"></span><span class="mlbl">Construire</span></button>
+          <button class="mbtn" id="m-map" aria-label="Carte"><span class="mico"></span><span class="mlbl">Carte</span></button>
+          <button class="mbtn" id="m-pause" aria-label="Menu"><span class="mico"></span><span class="mlbl">Menu</span></button>
+        </div>
+        <div id="debug" class="hidden"></div>
+      </div>
+
+      <!-- Commandes tactiles -->
+      <div id="controls" class="hidden">
+        <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div><div id="joy-hint">Glissez pour marcher<br />(à fond : courir)</div></div>
+        <div id="quickbar"></div>
+        <div id="action-buttons">
+          <button id="btn-dodge" class="abtn small" aria-label="Esquiver"><span class="aico"></span><span class="albl">Esquive</span></button>
+          <button id="btn-action" class="abtn" aria-label="Action"><span class="aico"></span><span class="albl">Action</span></button>
+          <button id="btn-attack" class="abtn big" aria-label="Attaquer"><span class="aico"></span><span class="albl">Attaque</span></button>
+        </div>
+      </div>
+
+      <!-- Mode construction -->
+      <div id="placebar" class="hidden">
+        <div id="place-info"><span id="place-name"></span><span id="place-reason"></span></div>
+        <div id="place-buttons">
+          <button id="place-rot" class="pbtn" title="Pas de rotation disponible pour ces éléments">Rotation</button>
+          <button id="place-cancel" class="pbtn">Annuler</button>
+          <button id="place-ok" class="pbtn ok">Valider</button>
+        </div>
+        <div id="place-help">Touchez ou glissez sur la carte pour déplacer l’aperçu (il s’affiche au-dessus du doigt). Flèches du clavier : ajuster.</div>
+      </div>
+
+      <div id="toasts" aria-live="polite"></div>
+      <div id="panel-layer" class="hidden"></div>
+      <div id="screen-layer"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

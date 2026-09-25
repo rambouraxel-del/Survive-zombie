@@ -302,7 +302,9 @@ export function updateEnemies(g: Game, dt: number): void {
         my = cy - e.y;
       }
     }
-    const ml = Math.hypot(mx, my);
+    let ml = Math.hypot(mx, my);
+    // ne se colle pas au joueur : garde une petite distance
+    if (e.state === 'chase' && distP < 18) ml = 0;
     e.moving = ml > 3;
     if (e.moving) {
       const vx = (mx / ml) * speed * dt;
@@ -371,6 +373,8 @@ export function findSpawnPoint(g: Game, cx: number, cy: number, minD: number, ma
     if (!w.inBounds(tx, ty) || !outside[w.idx(tx, ty)]) continue;
     if (Math.hypot(tx - w.start.x, ty - w.start.y) < SPAWN.safeRadiusTiles) continue;
     if (Math.hypot(x - p.x, y - p.y) < SPAWN.minDist * 0.8) continue;
+    // jamais dans le champ de vision réel de la caméra
+    if (Math.abs(x - p.x) < g.view.hw + 2 * TILE && Math.abs(y - p.y) < g.view.hh + 3 * TILE) continue;
     return { x: (tx + 0.5) * TILE, y: (ty + 0.5) * TILE };
   }
   return null;

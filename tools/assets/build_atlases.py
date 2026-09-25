@@ -70,8 +70,8 @@ WORLD = [
     ('fence_ne', 'Structure/Fences/Plain Fence A.png', 0, 3, 1, 1),
     ('fence_nw', 'Structure/Fences/Plain Fence A.png', 2, 3, 1, 1),
     ('fence_post', 'Structure/Fences/Plain Fence A.png', 3, 0, 1, 1),
-    ('door_closed', 'Structure/Doors/32x48px Doors/12 Panel Door A.png', 3, 0, 1, 1, (32, 48)),
-    ('door_open', 'Structure/Doors/32x48px Doors/12 Panel Door A.png', 1, 0, 1, 1, (32, 48)),
+    ('door_closed', 'Structure/Doors/32x48px Doors/12 Panel Door A.png', 156, 0, 36, 48, (1, 1)),
+    ('door_open', 'Structure/Doors/32x48px Doors/12 Panel Door A.png', 22, 0, 20, 48, (1, 1)),
     ('spikes', 'Objects/Furniture/Sawhorse.png', 0, 0, 1, 1),
     ('forge', 'Objects/Furniture/Smithing/Furnace A.png', 0, 0, 2, 2),
     ('anvil', 'Objects/Furniture/Smithing/Anvils.png', 0, 0, 1, 1),
@@ -154,6 +154,9 @@ ITEMS = [  # LPC Items and game effects (Tuomo Untinen et al.) + graves
 ]
 
 
+OFFSETS = {}
+
+
 def crop(base, spec):
     name, f, x, y, w, h = spec[:6]
     cw, ch = spec[6] if len(spec) > 6 else (32, 32)
@@ -162,6 +165,7 @@ def crop(base, spec):
     bb = c.getbbox()
     if bb is None:
         raise SystemExit(f'Cellule vide : {name}')
+    OFFSETS[name] = [bb[0], bb[1], w * cw, h * ch]
     return name, c.crop(bb), f
 
 
@@ -201,6 +205,8 @@ if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     w = pack([crop(E, s) for s in WORLD], os.path.join(OUT, 'world.png'), os.path.join(OUT, 'world.json'), 'world.png')
     i = pack([crop(FVI, s) for s in ITEMS], os.path.join(OUT, 'items.png'), os.path.join(OUT, 'items.json'), 'items.png')
+    with open(os.path.join(OUT, 'offsets.json'), 'w') as fh:
+        json.dump(OFFSETS, fh)
     with open(os.path.join(OUT, 'frame_sources.json'), 'w') as fh:
         json.dump({'world.png': w, 'items.png': i}, fh, indent=1, ensure_ascii=False)
     print(len(w), len(i))
