@@ -64,7 +64,8 @@ if (title) {
   const c = page.getByRole('button', { name: 'Nouvelle partie' });
   if ((await c.count()) > 1) await c.last().click();
   await page.getByText('Commencer').click();
-  await page.waitForTimeout(2500);
+  // la simulation doit avancer (machine lente, rendu logiciel : on attend jusqu'à 15 s)
+  await page.waitForFunction(() => (window.__app?.game?.clock ?? 0) > 1, null, { timeout: 15000 }).catch(() => {});
   const st = await page.evaluate(() => {
     const app = window.__app;
     const g = app?.game;
