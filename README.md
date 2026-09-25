@@ -109,17 +109,25 @@ Autres commandes :
 
 ## Déploiement sur GitHub Pages
 
-Le dépôt contient le workflow officiel `.github/workflows/deploy.yml` (build Vite + déploiement
-Pages) et `.github/workflows/ci.yml` (types, tests, build à chaque envoi).
+Le site publié doit être la **version compilée** (`dist/`), jamais les fichiers source : le
+`index.html` de la racine du dépôt pointe vers `/src/main.ts` et ne fonctionne pas tel quel.
 
-1. Sur GitHub : **Settings → Pages → Build and deployment → Source : « GitHub Actions »**.
-2. Fusionner le travail dans la branche `main` (le déploiement se lance à chaque envoi sur `main`),
-   ou lancer le workflow à la main : **Actions → « Déployer sur GitHub Pages » → Run workflow**.
-3. Le jeu est alors publié à l’adresse `https://<compte>.github.io/Survive-zombie/`.
+Workflows fournis :
+- `.github/workflows/deploy.yml` (à chaque envoi sur `main`) : installe les dépendances, lance les
+  tests, construit avec Vite, vérifie que `dist/index.html` référence bien les fichiers compilés,
+  publie **uniquement `dist/`** avec les actions officielles GitHub Pages, puis **vérifie l’URL
+  publique** dans un navigateur (JS, CSS, assets, écran titre, lancement d’une partie, rendu).
+  Captures d’écran disponibles dans l’artefact « verification-site-publie » du run.
+- `.github/workflows/verify-site.yml` : même vérification de l’URL publique, lancée à la main.
+- `.github/workflows/ci.yml` : types, tests et build à chaque envoi.
 
-Le projet utilise des chemins relatifs (`base: './'` dans `vite.config.ts`) : il fonctionne sous
-le sous-chemin du dépôt comme en local, et le rechargement de la page fonctionne (application
-d’une seule page, sans routes).
+Réglage obligatoire (une fois) : **Settings → Pages → Build and deployment → Source : « GitHub
+Actions »**. Avec « Deploy from a branch », GitHub publie les fichiers bruts d’une branche : c’est
+le HTML de développement qui est servi et le jeu ne démarre pas.
+
+Adresse : `https://<compte>.github.io/Survive-zombie/`. Les chemins sont relatifs
+(`base: './'` dans `vite.config.ts`) : le site fonctionne sous le sous-chemin du dépôt comme en
+local, et le rechargement de la page fonctionne (application d’une seule page, sans routes).
 
 ## Sauvegarde et export
 

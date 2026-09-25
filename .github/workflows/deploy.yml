@@ -18,6 +18,8 @@ concurrency:
 
 jobs:
   deploy:
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -38,6 +40,12 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+      - name: Contrôle du build (HTML compilé, pas le HTML de développement)
+        run: |
+          grep -q '/src/main.ts' dist/index.html && { echo "dist/index.html contient encore /src/main.ts"; exit 1; } || true
+          grep -Eq 'src="\./assets/index-[^"]+\.js"' dist/index.html
+          grep -Eq 'href="\./assets/index-[^"]+\.css"' dist/index.html
+          test -f dist/assets/atlas/world.png && test -f dist/assets/chars/player.png
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Upload artifact
@@ -47,3 +55,24 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+  # Vérifie le site réellement publié (URL publique) depuis un navigateur.
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Vérifier l’URL publique
+        run: node tests/e2e/check-deployed.mjs "${{ needs.deploy.outputs.page_url }}"
+      - name: Captures d’écran du site publié
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-site-publie
+          path: test-results/deployed

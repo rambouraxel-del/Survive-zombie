@@ -64,5 +64,25 @@
       <div id="screen-layer"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
+    <script>
+      // Filet de sécurité : si le jeu ne démarre pas (ex. page non compilée publiée), on l'explique.
+      (function () {
+        var d = null;
+        var t0 = Date.now();
+        var iv = setInterval(function () {
+          if (window.__app) {
+            if (d) d.remove();
+            clearInterval(iv);
+            return;
+          }
+          if (!d && Date.now() - t0 > 20000) {
+            d = document.createElement('div');
+            d.setAttribute('style', 'position:fixed;inset:0;z-index:99;background:#16120e;color:#f2e8d5;font:16px system-ui,sans-serif;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px');
+            d.textContent = 'Le jeu ne démarre pas. Connexion lente : patientez ou rechargez la page. Auteur du site : vérifiez que GitHub Pages publie la version compilée (Settings → Pages → Source : GitHub Actions).';
+            document.body.appendChild(d);
+          }
+        }, 1000);
+      })();
+    </script>
   </body>
 </html>

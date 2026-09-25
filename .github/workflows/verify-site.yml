@@ -1,0 +1,31 @@
+# Vérification manuelle du site publié (Actions → « Vérifier le site publié » → Run workflow).
+name: Vérifier le site publié
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL à vérifier'
+        required: false
+        default: 'https://rambouraxel-del.github.io/Survive-zombie/'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node tests/e2e/check-deployed.mjs "${{ inputs.url }}"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-site-publie
+          path: test-results/deployed
