@@ -225,7 +225,8 @@ export class WorldScene extends Phaser.Scene {
         a.setVisible(false);
         return;
       }
-      a.setVisible(true).setPosition(p.x, p.y).setRotation(Math.atan2(p.vy, p.vx) + Math.PI / 4).setDepth(p.y + 18);
+      // la pointe de l'icône de flèche est à gauche
+      a.setVisible(true).setPosition(p.x, p.y).setRotation(Math.atan2(p.vy, p.vx) + Math.PI).setDepth(p.y + 18);
     });
   }
 

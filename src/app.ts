@@ -394,8 +394,18 @@ export class App implements P.PanelHost, SceneHost {
 
   // ------------------------------------------------------------ messages
   toast(text: string, kind: 'info' | 'warn' | 'good' = 'info'): void {
+    if (this.overlay === 'death' || this.overlay === 'victory') return;
     const box = $('#toasts');
+    // messages identiques successifs : un seul message avec compteur
+    const last = box.lastElementChild as HTMLElement | null;
+    if (last && last.dataset.text === text && !last.classList.contains('out')) {
+      const n = Number(last.dataset.n ?? '1') + 1;
+      last.dataset.n = String(n);
+      last.textContent = `${text} (×${n})`;
+      return;
+    }
     const t = h('div', { class: `toast ${kind}`, text });
+    t.dataset.text = text;
     box.append(t);
     while (box.children.length > 4) box.firstChild?.remove();
     setTimeout(() => t.classList.add('out'), 3600);
@@ -407,6 +417,8 @@ export class App implements P.PanelHost, SceneHost {
     const layer = $('#screen-layer');
     clear(layer);
     if (el) layer.append(el);
+    // les écrans (victoire, mort, titre…) ne sont jamais recouverts par les messages
+    if (overlay) clear($('#toasts'));
     this.overlay = overlay;
     this.controls.reset();
     const inGame = !!this.g && overlay !== 'title' && overlay !== 'loading';

@@ -618,6 +618,8 @@ export class Game {
     const t = this.target;
     if (!t) return;
     t.run(this);
+    // maintenir le bouton ne répète que la récolte (pas les ouvertures ni les messages)
+    if (t.kind !== 'harvest') this.harvestCd = Math.max(this.harvestCd, 0.6);
   }
 
   /** Coup de récolte sur un objet du monde. */
