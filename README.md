@@ -68,9 +68,12 @@ remboursement annoncé (50 %). Un coffre détruit laisse son contenu dans un sac
 | **Action** | son libellé annonce l’action : couper, miner, cueillir, ouvrir, lire, ramasser, réparer… Maintenir pour répéter |
 | **Esquive** | courte roulade invulnérable (coûte de l’endurance) |
 | Barre rapide (5 cases) | manger, utiliser ou équiper d’un toucher |
-| Sac · Fabriquer · Construire · Carte · Menu | en haut à droite ; ouvrir un menu met le jeu en pause |
+| **Sac** et **Menu** (en haut à droite) | le Menu regroupe Fabriquer, Construire, Carte, Objectif et Pause ; ouvrir un menu met le jeu en pause |
+| Ligne d’objectif (en haut) | objectif et progression sur une ligne ; la toucher affiche les détails (jeu en pause) |
 
-Plusieurs doigts fonctionnent en même temps (marcher en attaquant, etc.).
+Plusieurs doigts fonctionnent en même temps (marcher en attaquant, etc.). L’aide « Glissez pour
+marcher » disparaît après les premiers déplacements. La caméra garde le personnage dans la zone
+libre de l’écran, entre le haut de l’interface et les commandes, en portrait comme en paysage.
 En mode construction, touchez ou glissez sur la carte : l’aperçu s’affiche au-dessus du doigt.
 
 ### Ordinateur

@@ -33,6 +33,9 @@ export class App implements P.PanelHost, SceneHost {
   private fpsAvg = 60;
   private debugT = 0;
   private fireT = 0;
+  private layoutT = 0;
+  private movedFor = 0;
+  private joyHintDone = false;
 
   constructor() {
     this.controls = new Controls(document.body, {
@@ -128,7 +131,13 @@ export class App implements P.PanelHost, SceneHost {
       return;
     }
     this.fpsAvg = this.fpsAvg * 0.95 + fps * 0.05;
-    this.hud?.update(g, dt, this.settings.showHints);
+    this.hud?.update(g, dt);
+    this.updateJoyHint(dt);
+    this.layoutT -= dt;
+    if (this.layoutT <= 0) {
+      this.layoutT = 0.4;
+      this.measureInsets();
+    }
     // musique selon le moment
     const night = g.isDark() || g.final.state === 'active';
     this.audio.setMusic(night ? 'music_night' : 'music_day');
@@ -179,17 +188,23 @@ export class App implements P.PanelHost, SceneHost {
   // ------------------------------------------------------------ interface statique
   private bindStaticUi(): void {
     $('#m-inv').addEventListener('click', () => this.shortcut('inventory'));
-    $('#m-craft').addEventListener('click', () => this.shortcut('craft'));
-    $('#m-build').addEventListener('click', () => this.shortcut('build'));
-    $('#m-map').addEventListener('click', () => this.shortcut('map'));
-    $('#m-pause').addEventListener('click', () => this.shortcut('pause'));
+    $('#m-menu').addEventListener('click', () => this.shortcut('hub'));
+    $('#objective').addEventListener('click', () => this.shortcut('objective'));
+    try {
+      if (localStorage.getItem('bdc-joy-hint') === 'vu') {
+        $('#joy-hint').classList.add('hidden');
+        this.joyHintDone = true;
+      }
+    } catch {
+      /* stockage indisponible */
+    }
     $('#place-cancel').addEventListener('click', () => this.stopPlacement());
     $('#place-ok').addEventListener('click', () => this.confirmPlacement());
     ($('#place-rot') as HTMLButtonElement).disabled = true;
     if (!matchMedia('(pointer: coarse)').matches) document.body.classList.add('no-touch');
   }
 
-  private shortcut(n: 'inventory' | 'craft' | 'build' | 'map' | 'pause'): void {
+  private shortcut(n: 'inventory' | 'craft' | 'build' | 'map' | 'pause' | 'hub' | 'objective'): void {
     if (!this.g || this.overlay) return;
     if (this.scene?.placing || this.scene?.managing) {
       if (n === 'pause') this.stopPlacement();
@@ -263,6 +278,12 @@ export class App implements P.PanelHost, SceneHost {
       case 'sanctuary':
         el = P.sanctuaryPanel(this);
         break;
+      case 'hub':
+        el = P.hubPanel(this);
+        break;
+      case 'objective':
+        el = P.objectivePanel(this);
+        break;
       default:
         return;
     }
@@ -271,6 +292,7 @@ export class App implements P.PanelHost, SceneHost {
     clear(layer);
     layer.append(el);
     layer.classList.remove('hidden');
+    layer.classList.toggle('anchored', name === 'hub');
     layer.onclick = (e) => {
       if (e.target === layer) this.closePanel();
     };
@@ -306,6 +328,7 @@ export class App implements P.PanelHost, SceneHost {
 
   // ------------------------------------------------------------ construction
   startPlacement(type: string): void {
+    this.layoutT = 0.05;
     const g = this.g;
     if (!g || !this.scene) return;
     this.closePanel();
@@ -323,6 +346,7 @@ export class App implements P.PanelHost, SceneHost {
   }
 
   startManage(): void {
+    this.layoutT = 0.05;
     if (!this.scene) return;
     this.closePanel();
     this.scene.placing = null;
@@ -363,6 +387,7 @@ export class App implements P.PanelHost, SceneHost {
   }
 
   stopPlacement(): void {
+    this.layoutT = 0.05;
     if (!this.scene) return;
     this.scene.placing = null;
     this.scene.managing = false;
@@ -496,7 +521,52 @@ export class App implements P.PanelHost, SceneHost {
     this.g = g;
     this.scene?.setGame(g);
     this.hud?.forceRefresh();
-    $('#objective').classList.remove('collapsed');
+    this.hud?.highlightObjective();
+    this.layoutT = 0;
+  }
+
+  /** L'aide « Glissez pour marcher » disparaît après les premiers déplacements. */
+  private updateJoyHint(dt: number): void {
+    if (this.joyHintDone || !this.g) return;
+    if (this.g.player.moving) this.movedFor += dt;
+    if (this.movedFor > 2.5) {
+      this.joyHintDone = true;
+      $('#joy-hint').classList.add('hidden');
+      try {
+        localStorage.setItem('bdc-joy-hint', 'vu');
+      } catch {
+        /* sans importance */
+      }
+    }
+  }
+
+  /**
+   * Mesure la place réellement occupée par l'interface en haut et en bas de l'écran
+   * pour centrer le personnage dans la zone de jeu dégagée.
+   */
+  measureInsets(): void {
+    if (!this.scene) return;
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    // seuls comptent les éléments qui recouvrent la bande centrale (où se tient le personnage)
+    const vis = (sel: string) => {
+      const el = document.querySelector<HTMLElement>(sel);
+      if (!el || el.offsetParent === null) return null;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height || r.right < W * 0.3 || r.left > W * 0.7) return null;
+      return r;
+    };
+    let top = 0;
+    for (const s of ['#status', '#objective', '#menu-buttons']) {
+      const r = vis(s);
+      if (r && r.top < H / 2) top = Math.max(top, r.bottom);
+    }
+    let bottom = 0;
+    for (const s of ['#action-buttons', '#quickbar', '#placebar']) {
+      const r = vis(s);
+      if (r && r.bottom > H / 2) bottom = Math.max(bottom, H - r.top);
+    }
+    this.scene.setViewInsets(top, bottom);
   }
 
   /** La simulation ne reprend qu'après confirmation du joueur. */

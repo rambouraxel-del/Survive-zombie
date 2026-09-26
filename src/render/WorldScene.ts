@@ -95,6 +95,24 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private insets = { top: 0, bottom: 0 };
+
+  /** Place (px CSS) occupée par l'interface en haut et en bas : le personnage est centré dans l'espace libre. */
+  setViewInsets(top: number, bottom: number): void {
+    this.insets = { top, bottom };
+    this.applyFollowOffset();
+  }
+
+  private applyFollowOffset(): void {
+    const cam = this.cameras.main;
+    const cssH = window.innerHeight;
+    // centre de la zone libre par rapport au centre de l'écran (px CSS)
+    const freeCenter = (this.insets.top + (cssH - this.insets.bottom)) / 2;
+    const deltaCss = cssH / 2 - freeCenter;
+    const cssToWorld = this.scale.height / cssH / cam.zoom;
+    cam.setFollowOffset(0, -deltaCss * cssToWorld);
+  }
+
   applyZoom(): void {
     const cam = this.cameras.main;
     const w = this.scale.width;
@@ -102,6 +120,7 @@ export class WorldScene extends Phaser.Scene {
     const z = Math.max(1, Math.round(Math.min(w, h) / (TILE * 11.5)));
     cam.setZoom(z);
     cam.setRoundPixels(true);
+    this.applyFollowOffset();
   }
 
   setGame(g: Game): void {

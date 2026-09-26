@@ -1,4 +1,5 @@
-// Affichage tête haute : jauges, jour/nuit, objectif, barre rapide, bouton d'action.
+// Affichage tête haute compact : jauges, jour/nuit, objectif sur une ligne,
+// barre rapide, boutons d'action (l'arme équipée est affichée sur « Attaque »).
 import { DAY, PLAYER } from '../config/balance';
 import { item } from '../data/items';
 import { PHASE_NAMES, type Game } from '../sim/game';
@@ -26,22 +27,20 @@ export function slotEl(st: Stack | null, opts: { key?: string; box?: number; sel
   return b;
 }
 
+/** Durée pendant laquelle un objectif nouveau ou qui progresse est mis en avant. */
+const FRESH_MS = 6000;
+
 export class Hud {
-  private last = { inv: '', equip: '', obj: '', target: '', hint: '' };
+  private last = { inv: '', weapon: '#', obj: '', target: '' };
   private t = 0;
-  private lastObjId = '';
-  private collapseTimer = 0;
+  private freshTimer = 0;
   onQuickSlot: (i: number) => void = () => {};
 
   constructor() {
-    setIcon($('#m-inv .mico'), 'items:i_bag', 28);
-    setIcon($('#m-craft .mico'), 'world:i_hammer', 28);
-    setIcon($('#m-build .mico'), 'world:i_planks', 28);
-    setIcon($('#m-map .mico'), 'items:i_map', 28);
-    setIcon($('#m-pause .mico'), 'items:i_note', 28);
-    setIcon($('#btn-attack .aico'), 'items:i_sword', 34);
-    setIcon($('#btn-dodge .aico'), 'items:i_boots', 26);
-    $('#obj-toggle').addEventListener('click', () => $('#objective').classList.toggle('collapsed'));
+    setIcon($('#m-inv .mico'), 'items:i_bag', 26);
+    setIcon($('#m-menu .mico'), 'items:i_note', 26);
+    setIcon($('#objective .obj-ico'), 'items:i_map', 18);
+    setIcon($('#btn-dodge .aico'), 'items:i_boots', 24);
   }
 
   private setBar(id: string, v: number, max: number, warn: number, crit: number): void {
@@ -52,7 +51,7 @@ export class Hud {
     el.classList.toggle('crit', v <= crit);
   }
 
-  update(g: Game, dt: number, showHints: boolean): void {
+  update(g: Game, dt: number): void {
     this.t -= dt;
     const p = g.player;
     // bouton d'action : réagit immédiatement au changement de cible
@@ -63,7 +62,7 @@ export class Hud {
       const btn = $('#btn-action');
       (btn.querySelector('.albl') as HTMLElement).textContent = tgt ? tgt.label : 'Action';
       const ico = btn.querySelector('.aico') as HTMLElement;
-      if (tgt) setIcon(ico, tgt.icon, 30);
+      if (tgt) setIcon(ico, tgt.icon, 28);
       else setIcon(ico, 'items:i_bag', 0);
       btn.classList.toggle('has-target', !!tgt);
       btn.classList.toggle('no-target', !tgt);
@@ -76,24 +75,23 @@ export class Hud {
     $('#dayname').textContent = `Jour ${g.day} · ${PHASE_NAMES[g.phase()]}`;
     $('#dayfill').style.left = `${(g.dayTime / DAY.length) * 100}%`;
 
-    const esig = JSON.stringify(p.equip);
-    if (esig !== this.last.equip) {
-      this.last.equip = esig;
-      const box = $('#equipbox');
-      clear(box);
-      for (const [slot, label] of [['weapon', 'Arme'], ['tool', 'Outil'], ['armor', 'Protection']] as const) {
-        const st = p.equip[slot];
-        const cell = h('div', { class: 'eq', title: st ? item(st.id).name : `${label} : aucune` });
-        if (st) {
-          cell.append(icon(item(st.id).icon, 26));
-          const d = item(st.id);
-          if (d.durability && st.dur !== undefined) {
-            const r = st.dur / d.durability;
-            cell.append(h('span', { class: 'dur' + (r < 0.25 ? ' low' : '') }, h('i', { style: { width: `${r * 100}%` } })));
-          }
-        }
-        box.append(cell);
-      }
+    // arme (ou outil servant d'arme) affichée sur le bouton d'attaque, avec son usure
+    const w = p.equip.weapon ?? (p.equip.tool && item(p.equip.tool.id).weapon ? p.equip.tool : null);
+    const wsig = w ? `${w.id}|${Math.ceil(w.dur ?? 0)}` : '';
+    if (wsig !== this.last.weapon) {
+      this.last.weapon = wsig;
+      const btn = $('#btn-attack');
+      setIcon(btn.querySelector('.aico') as HTMLElement, w ? item(w.id).icon : 'items:i_sword', 30);
+      btn.classList.toggle('bare', !w);
+      const dur = btn.querySelector('.dur') as HTMLElement;
+      const d = w ? item(w.id) : null;
+      if (w && d?.durability && w.dur !== undefined) {
+        const r = w.dur / d.durability;
+        dur.classList.remove('hidden');
+        dur.classList.toggle('low', r < 0.25);
+        (dur.firstElementChild as HTMLElement).style.width = `${Math.max(0, r * 100)}%`;
+      } else dur.classList.add('hidden');
+      btn.setAttribute('aria-label', w ? `Attaquer (${item(w.id).name})` : 'Attaquer (mains nues)');
     }
 
     const isig = JSON.stringify(p.inv.slice(0, 5));
@@ -102,32 +100,47 @@ export class Hud {
       const qb = $('#quickbar');
       clear(qb);
       for (let i = 0; i < 5; i++) {
-        const s = slotEl(p.inv[i], { key: String(i + 1) });
+        const s = slotEl(p.inv[i], { key: String(i + 1), box: 32 });
         s.addEventListener('click', () => this.onQuickSlot(i));
         qb.append(s);
       }
     }
 
+    // objectif : une seule ligne, mise en avant brièvement quand il change ou progresse
     const o = currentObjective(g);
-    const osig = o ? `${o.id}|${o.progress?.(g) ?? ''}` : 'done';
-    if (osig !== this.last.obj || String(showHints) !== this.last.hint) {
+    const prog = o?.progress?.(g) ?? '';
+    const osig = o ? `${o.id}|${prog}` : `done|${g.final.state}`;
+    if (osig !== this.last.obj) {
+      const first = this.last.obj === '';
       this.last.obj = osig;
-      this.last.hint = String(showHints);
-      $('#obj-title').textContent = o ? o.title : g.final.state === 'won' ? 'La forêt est libérée — continuez à explorer' : 'Survivre';
-      $('#obj-progress').textContent = o?.progress?.(g) ?? '';
-      $('#obj-hint').textContent = o && showHints ? o.hint : '';
-      // l'aide se replie seule après quelques secondes pour dégager l'écran
-      if (this.last.obj.split('|')[0] !== this.lastObjId) {
-        this.lastObjId = this.last.obj.split('|')[0];
-        $('#objective').classList.remove('collapsed');
-        clearTimeout(this.collapseTimer);
-        this.collapseTimer = window.setTimeout(() => $('#objective').classList.add('collapsed'), 12000);
+      $('#obj-title').textContent = o ? o.title : g.final.state === 'won' ? 'Forêt libérée : explorez librement' : 'Survivre';
+      $('#obj-progress').textContent = prog ? shortProgress(prog) : '';
+      const el = $('#objective');
+      if (!first) {
+        el.classList.add('fresh');
+        clearTimeout(this.freshTimer);
+        this.freshTimer = window.setTimeout(() => el.classList.remove('fresh'), FRESH_MS);
       }
     }
   }
 
+  /** Met l'objectif en avant (par exemple au début d'une partie). */
+  highlightObjective(): void {
+    const el = $('#objective');
+    el.classList.add('fresh');
+    clearTimeout(this.freshTimer);
+    this.freshTimer = window.setTimeout(() => el.classList.remove('fresh'), FRESH_MS);
+  }
+
   forceRefresh(): void {
-    this.last = { inv: '', equip: '', obj: '', target: '', hint: '' };
+    this.last = { inv: '', weapon: '#', obj: this.last.obj, target: '' };
     this.t = 0;
   }
+}
+
+/** « Bois 1/3 · Pierre 0/3 · Fibres 2/2 » -> « 1/3 · 0/3 · 2/2 » pour tenir sur une ligne. */
+function shortProgress(p: string): string {
+  const parts = p.split('·').map((s) => s.trim());
+  if (parts.length > 1 && parts.every((s) => /\d+\/\d+/.test(s))) return parts.map((s) => s.replace(/^[^\d]*\s/, '')).join(' · ');
+  return p;
 }

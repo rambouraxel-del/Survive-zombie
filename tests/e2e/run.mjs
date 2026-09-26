@@ -41,6 +41,11 @@ async function newPage(viewport) {
   return { ctx, page, errors };
 }
 
+// ouvre une entrée du menu compact (Fabriquer, Construire, Carte, Objectif, Pause)
+async function viaMenu(page, label) {
+  await page.locator('#m-menu').click();
+  await page.locator('.hub-btn', { hasText: label }).click();
+}
 const shot = (page, name) => page.screenshot({ path: path.join(OUT, `${name}.png`) });
 const G = (page, fn, arg) => page.evaluate(fn, arg);
 
@@ -122,7 +127,7 @@ async function noOverflow(page) {
     add('wood', 40); add('stone', 20); add('fiber', 12); add('planks', 8); add('rope', 4);
     window.__app.hud.forceRefresh();
   });
-  await page.locator('#m-craft').click();
+  await viaMenu(page, 'Fabriquer');
   await page.waitForSelector('.recipe');
   await shot(page, 'paysage-03-fabrication');
   const axeRow = page.locator('.recipe', { hasText: 'Hache de pierre' });
@@ -137,7 +142,7 @@ async function noOverflow(page) {
     g.player.x = (g.world.start.x + 7.5) * 32;
     g.player.y = (g.world.start.y + 6.5) * 32;
   });
-  await page.locator('#m-build').click();
+  await viaMenu(page, 'Construire');
   await page.locator('.recipe', { hasText: 'Feu de camp' }).getByRole('button', { name: 'Placer' }).click();
   await page.waitForTimeout(200);
   // cherche une case valide en tapant autour du joueur
@@ -193,7 +198,7 @@ async function noOverflow(page) {
   });
   const atk2 = await center(page, '#btn-attack');
   let killed = false;
-  for (let i = 0; i < 14 && !killed; i++) {
+  for (let i = 0; i < 28 && !killed; i++) {
     await touch(page, cdp, 'touchStart', [atk2]);
     await page.waitForTimeout(250);
     if (i === 3) await shot(page, 'paysage-06-combat');
@@ -204,30 +209,40 @@ async function noOverflow(page) {
   check('combat au corps à corps', killed);
 
   // --- chaque écran s'ouvre et se ferme, et le mouvement n'est pas bloqué ensuite
-  for (const [btn, name] of [['#m-inv', 'sac'], ['#m-craft', 'fabrication'], ['#m-build', 'construction'], ['#m-map', 'carte'], ['#m-pause', 'pause']]) {
-    await page.locator(btn).click();
+  for (const [label, name] of [[null, 'sac'], ['Fabriquer', 'fabrication'], ['Construire', 'construction'], ['Carte', 'carte'], ['Objectif', 'objectif'], ['Pause', 'pause']]) {
+    if (label) await viaMenu(page, label);
+    else await page.locator('#m-inv').click();
     await page.waitForTimeout(150);
     const open = await page.locator('#panel-layer .panel').isVisible();
+    const paused = await G(page, () => window.__app.isSimPaused());
     await shot(page, `paysage-panneau-${name}`);
-    check(`panneau ${name} : sans débordement`, await noOverflow(page));
+    check(`panneau ${name} : sans débordement, jeu en pause`, (await noOverflow(page)) && paused);
     await page.locator('#panel-layer .close').first().click();
     const closed = await page.locator('#panel-layer').isHidden();
     check(`panneau ${name} ouvert puis fermé`, open && closed);
   }
+  // l'objectif compact s'ouvre au toucher (pause pendant la lecture)
+  await page.locator('#objective').click();
+  check('toucher l’objectif ouvre ses détails et met en pause', (await page.locator('#panel-layer .panel', { hasText: 'Objectif' }).isVisible()) && (await G(page, () => window.__app.isSimPaused())));
+  await page.locator('#panel-layer .close').first().click();
   for (const n of ['options', 'help', 'credits']) {
-    await page.locator('#m-pause').click();
-    await page.getByRole('button', { name: n === 'options' ? 'Options' : n === 'help' ? 'Commandes et règles' : 'Crédits' }).click();
+    await viaMenu(page, 'Pause');
+    await page.locator('#panel-layer').getByRole('button', { name: n === 'options' ? 'Options' : n === 'help' ? 'Commandes et règles' : 'Crédits', exact: true }).click();
     await page.waitForTimeout(100);
     await shot(page, `paysage-panneau-${n}`);
     await page.locator('#panel-layer .close').first().click();
   }
-  const x0 = await G(page, () => window.__app.game.player.x);
-  await touch(page, cdp, 'touchStart', [joy]);
-  await touch(page, cdp, 'touchMove', [{ x: joy.x - 50, y: joy.y }]);
-  await page.waitForTimeout(500);
-  await touch(page, cdp, 'touchEnd', []);
-  const x1 = await G(page, () => window.__app.game.player.x);
-  check('mouvement possible après fermeture des menus', Math.abs(x1 - x0) > 10);
+  // (on essaie à gauche puis à droite : un obstacle peut bloquer un côté)
+  let moved = 0;
+  for (const dx of [-50, 50]) {
+    const x0 = await G(page, () => window.__app.game.player.x);
+    await touch(page, cdp, 'touchStart', [joy]);
+    await touch(page, cdp, 'touchMove', [{ x: joy.x + dx, y: joy.y }]);
+    await page.waitForTimeout(500);
+    await touch(page, cdp, 'touchEnd', []);
+    moved = Math.max(moved, Math.abs((await G(page, () => window.__app.game.player.x)) - x0));
+  }
+  check('mouvement possible après fermeture des menus', moved > 10, `dx=${moved.toFixed(0)}`);
 
   // --- nuit
   await G(page, () => { const g = window.__app.game; g.dayTime = 500; g.lastPhase = 'night'; });
@@ -287,7 +302,9 @@ async function noOverflow(page) {
 // ------------------------------------------------------------------ portrait
 {
   const { ctx, page, errors } = await newPage({ width: 390, height: 844 });
-  await page.goto(url);
+  // zones de sécurité d'un iPhone simulées : encoche 47 px en haut, barre d'accueil 34 px en bas
+  await page.goto(`${url}${url.includes('?') ? '&' : '?'}safe=47,34,0,0`);
+  await page.evaluate(() => localStorage.removeItem('bdc-joy-hint'));
   await page.waitForSelector('text=Nouvelle partie', { timeout: 30000 });
   await shot(page, 'portrait-01-titre');
   await page.getByText('Nouvelle partie').click();
@@ -298,12 +315,63 @@ async function noOverflow(page) {
   await shot(page, 'portrait-02-jeu');
   check('pas de défilement de page (portrait)', await noOverflow(page));
   // les commandes cruciales restent visibles et d'au moins 48 px CSS
-  const sizes = await page.evaluate(() => ['#btn-attack', '#btn-action', '#btn-dodge', '#m-inv', '#m-craft', '#m-build', '#m-map', '#m-pause', '#quickbar .slot'].map((s) => {
+  const sizes = await page.evaluate(() => ['#btn-attack', '#btn-action', '#btn-dodge', '#m-inv', '#m-menu', '#objective', '#quickbar .slot'].map((s) => {
     const r = document.querySelector(s).getBoundingClientRect();
     return { s, w: r.width, h: r.height, vis: r.bottom <= innerHeight && r.right <= innerWidth && r.top >= 0 && r.left >= 0 };
   }));
   const bad = sizes.filter((x) => x.w < 48 || x.h < 48 || !x.vis);
   check('cibles tactiles ≥ 48 px et visibles (portrait)', bad.length === 0, bad.map((b) => `${b.s} ${b.w}x${b.h}`).join(', '));
+  // disposition : rien ne se chevauche, tout reste hors des zones de sécurité
+  const lay = await page.evaluate(() => {
+    const R = (s) => document.querySelector(s).getBoundingClientRect();
+    const els = { quickbar: R('#quickbar'), actions: R('#action-buttons'), joy: R('#joy-base'), status: R('#status'), objective: R('#objective'), menu: R('#menu-buttons') };
+    const inter = (a, b) => a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom;
+    const names = Object.keys(els);
+    const over = [];
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) if (inter(els[names[i]], els[names[j]])) over.push(`${names[i]}/${names[j]}`);
+    const unsafe = names.filter((n) => els[n].top < 47 || els[n].bottom > innerHeight - 34);
+    return { over, unsafe };
+  });
+  check('aucun chevauchement entre barre rapide, boutons, joystick et HUD (portrait)', lay.over.length === 0, lay.over.join(', '));
+  check('HUD et commandes hors encoche et barre d’accueil (portrait)', lay.unsafe.length === 0, lay.unsafe.join(', '));
+  // personnage dégagé : aucun élément d'interface sur lui
+  const hits = await page.evaluate(() => {
+    const cam = window.__phaser.scene.getScene('world').cameras.main;
+    const p = window.__app.game.player;
+    const k = cam.zoom / Math.min(devicePixelRatio || 1, 2);
+    const sx = (p.x - cam.worldView.x) * k;
+    const sy = (p.y - cam.worldView.y) * k;
+    const box = { l: sx - 32 * k, r: sx + 32 * k, t: sy - 56 * k, b: sy + 16 * k };
+    const out = [];
+    for (const el of document.querySelectorAll('#hud > *, #quickbar, #action-buttons, #joy-base, #placebar')) {
+      const r = el.getBoundingClientRect();
+      if (!r.width || el.classList.contains('hidden')) continue;
+      if (r.right > box.l && r.left < box.r && r.bottom > box.t && r.top < box.b) out.push(el.id);
+    }
+    return out;
+  });
+  check('personnage non recouvert par l’interface (portrait)', hits.length === 0, hits.join(', '));
+
+  // multitouch en portrait : joystick + attaque simultanés, puis l'aide du joystick disparaît
+  const cdp = await ctx.newCDPSession(page);
+  const jb = await center(page, '#joy-base');
+  const atk = await center(page, '#btn-attack');
+  const x0 = await G(page, () => window.__app.game.player.x);
+  await touch(page, cdp, 'touchStart', [{ ...jb, id: 1 }]);
+  await touch(page, cdp, 'touchMove', [{ x: jb.x + 50, y: jb.y, id: 1 }]);
+  await touch(page, cdp, 'touchStart', [{ x: jb.x + 50, y: jb.y, id: 1 }, { ...atk, id: 2 }]);
+  await page.waitForTimeout(500);
+  const dur = await G(page, () => ({ x: window.__app.game.player.x, cd: window.__app.game.player.attackCd, t: window.__app.game.player.actionT }));
+  await touch(page, cdp, 'touchEnd', [{ x: jb.x + 50, y: jb.y, id: 1 }]);
+  check('multitouch portrait : marcher et attaquer en même temps', dur.x > x0 + 8 && (dur.cd > 0 || dur.t > 0), `dx=${(dur.x - x0).toFixed(0)}`);
+  await touch(page, cdp, 'touchStart', [{ ...jb, id: 3 }]);
+  await touch(page, cdp, 'touchMove', [{ x: jb.x - 50, y: jb.y, id: 3 }]);
+  await page.waitForTimeout(2800);
+  await touch(page, cdp, 'touchEnd', []);
+  await page.waitForTimeout(300);
+  const hint = await page.evaluate(() => ({ hidden: getComputedStyle(document.getElementById('joy-hint')).display === 'none' || document.getElementById('joy-hint').classList.contains('hidden'), saved: localStorage.getItem('bdc-joy-hint') }));
+  check('aide « Glissez pour marcher » masquée après les premiers déplacements', hint.hidden && hint.saved === 'vu', JSON.stringify(hint));
+
   await page.locator('#m-inv').click();
   await shot(page, 'portrait-03-sac');
   await page.locator('#panel-layer .close').first().click();

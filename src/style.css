@@ -79,35 +79,38 @@ button {
   flex: none;
 }
 
-/* ---------------- HUD ---------------- */
-#bars {
+/* ---------------- HUD ----------------
+   Disposition distincte en portrait et en paysage. Le centre de l'écran reste
+   dégagé : la caméra recentre le personnage dans l'espace libre (voir measureInsets). */
+#status {
   position: absolute;
   top: calc(6px + var(--sat));
   left: calc(8px + var(--sal));
-  width: 190px;
+  width: 172px;
   display: flex;
   flex-direction: column;
   gap: 3px;
   background: rgba(20, 15, 10, 0.55);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 7px;
 }
 .bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 14px;
 }
 .bar .lbl {
-  width: 38px;
+  width: 34px;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: 700;
 }
 .bar .track {
   flex: 1;
-  height: 10px;
+  height: 8px;
   background: rgba(0, 0, 0, 0.55);
-  border-radius: 5px;
+  border-radius: 4px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -117,9 +120,10 @@ button {
   transition: width 0.15s linear;
 }
 .bar .val {
-  width: 26px;
+  width: 24px;
   text-align: right;
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 #bar-hp .fill {
   background: #d9483b;
@@ -148,47 +152,31 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  margin-top: 2px;
+  font-size: 11px;
+  line-height: 14px;
 }
 #dayname {
   white-space: nowrap;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--gold);
 }
 #daytrack {
   flex: 1;
-  height: 5px;
+  height: 4px;
   background: linear-gradient(90deg, #d8b25a 0 60.6%, #b0603a 60.6% 69.7%, #2b3566 69.7% 97%, #8b6a8f 97%);
-  border-radius: 3px;
+  border-radius: 2px;
   position: relative;
 }
 #dayfill {
   position: absolute;
   top: -3px;
   width: 3px;
-  height: 11px;
+  height: 10px;
   background: #fff;
   border-radius: 2px;
 }
-#equipbox {
-  display: flex;
-  gap: 4px;
-  margin-top: 3px;
-}
-#equipbox .eq {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-#equipbox .eq .dur,
-.slot .dur {
+.slot .dur,
+#btn-attack .dur {
   position: absolute;
   left: 3px;
   right: 3px;
@@ -207,49 +195,44 @@ button {
   background: var(--bad);
 }
 
+/* Objectif : une seule ligne, repliée ; toucher ouvre les détails (jeu en pause) */
 #objective {
   position: absolute;
-  top: calc(6px + var(--sat));
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(46vw, 440px);
-  background: rgba(20, 15, 10, 0.72);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  pointer-events: auto;
-}
-#obj-toggle {
-  display: block;
-  width: 100%;
-  min-height: 40px;
-  background: none;
-  border: 0;
-  padding: 6px 12px;
-  text-align: left;
-  font-weight: 700;
-  color: var(--gold);
-  font-size: 14px;
-}
-#obj-toggle::before {
-  content: 'Objectif · ';
-  color: var(--muted);
-  font-weight: 500;
-}
-#obj-detail {
-  padding: 0 12px 8px;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: rgba(20, 15, 10, 0.5);
+  border: 1px solid rgba(107, 83, 53, 0.55);
   color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  opacity: 0.82;
+  transition: opacity 0.3s, background 0.3s, border-color 0.3s;
 }
-#obj-progress {
-  color: var(--good);
+#objective.fresh {
+  opacity: 1;
+  background: rgba(20, 15, 10, 0.85);
+  border-color: var(--gold);
+}
+#obj-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-weight: 600;
 }
-#obj-hint {
-  color: var(--muted);
-  margin-top: 2px;
+#objective.fresh #obj-title {
+  color: var(--gold);
 }
-#objective.collapsed #obj-hint {
-  display: none;
+#obj-progress {
+  white-space: nowrap;
+  color: var(--good);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 #menu-buttons {
@@ -260,11 +243,11 @@ button {
   gap: 6px;
 }
 .mbtn {
-  min-width: var(--touch);
-  height: var(--touch);
-  padding: 2px 4px;
-  border-radius: 10px;
-  background: rgba(34, 26, 18, 0.85);
+  width: 54px;
+  height: 54px;
+  padding: 2px;
+  border-radius: 12px;
+  background: rgba(34, 26, 18, 0.8);
   border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -283,7 +266,7 @@ button {
 #debug {
   position: absolute;
   left: calc(8px + var(--sal));
-  top: calc(180px + var(--sat));
+  top: calc(150px + var(--sat));
   font: 11px/1.35 ui-monospace, monospace;
   background: rgba(0, 0, 0, 0.6);
   padding: 4px 6px;
@@ -295,23 +278,18 @@ button {
 #joy-zone {
   position: absolute;
   left: 0;
-  bottom: 0;
-  width: 42vw;
-  height: 58vh;
   pointer-events: auto;
   touch-action: none;
 }
 #joy-base {
   position: absolute;
-  width: 124px;
-  height: 124px;
-  margin: -62px 0 0 -62px;
+  width: 120px;
+  height: 120px;
+  margin: -60px 0 0 -60px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  left: calc(96px + var(--sal));
-  top: calc(100% - 100px - var(--sab));
-  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  opacity: 0.5;
 }
 #joy-base.active {
   opacity: 1;
@@ -320,70 +298,70 @@ button {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 56px;
-  height: 56px;
-  margin: -28px 0 0 -28px;
+  width: 54px;
+  height: 54px;
+  margin: -27px 0 0 -27px;
   border-radius: 50%;
-  background: rgba(232, 199, 122, 0.55);
+  background: rgba(232, 199, 122, 0.5);
   border: 2px solid rgba(255, 255, 255, 0.5);
 }
 #joy-hint {
   position: absolute;
-  left: calc(40px + var(--sal));
-  bottom: calc(10px + var(--sab));
+  left: calc(16px + var(--sal));
+  bottom: 4px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.6);
+  text-shadow: 0 1px 2px #000;
   pointer-events: none;
 }
-body.no-touch #joy-zone,
-body.no-touch #joy-hint {
+body.no-touch #joy-zone {
   opacity: 0.35;
 }
 
 #action-buttons {
   position: absolute;
-  right: calc(12px + var(--sar));
-  bottom: calc(12px + var(--sab));
-  width: 210px;
-  height: 190px;
+  right: calc(8px + var(--sar));
 }
 .abtn {
   position: absolute;
   border-radius: 50%;
-  background: rgba(34, 26, 18, 0.78);
+  background: rgba(34, 26, 18, 0.75);
   border: 2px solid var(--line);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1px;
+  padding: 4px;
   touch-action: none;
   pointer-events: auto;
 }
 .abtn .albl {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   color: var(--text);
-  max-width: 96%;
+  max-width: 100%;
   line-height: 1.1;
   text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .abtn.pressed {
   background: rgba(90, 70, 40, 0.95);
   border-color: var(--gold);
 }
 #btn-attack {
-  width: 92px;
-  height: 92px;
-  right: 0;
-  bottom: 0;
   border-color: #9a4a3a;
 }
-#btn-action {
-  width: 80px;
-  height: 80px;
-  right: 100px;
-  bottom: 4px;
+#btn-attack.bare .aico {
+  opacity: 0.45;
+}
+#btn-attack .dur {
+  left: 26%;
+  right: 26%;
+  bottom: 9px;
 }
 #btn-action.has-target {
   border-color: var(--gold);
@@ -392,28 +370,22 @@ body.no-touch #joy-hint {
 #btn-action.no-target {
   opacity: 0.55;
 }
-#btn-dodge {
-  width: 64px;
-  height: 64px;
-  right: 14px;
-  bottom: 104px;
-}
 
 #quickbar {
   position: absolute;
-  bottom: calc(10px + var(--sab));
+  bottom: calc(6px + var(--sab));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 5px;
-  background: rgba(20, 15, 10, 0.6);
-  padding: 5px;
+  gap: 4px;
+  background: rgba(20, 15, 10, 0.55);
+  padding: 4px;
   border-radius: 10px;
   pointer-events: auto;
 }
 .slot {
-  width: var(--touch);
-  height: var(--touch);
+  width: 50px;
+  height: 50px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.45);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -449,66 +421,107 @@ body.no-touch #joy-hint {
   border-style: dashed;
   border-color: var(--good);
 }
+#panel-layer .slot {
+  width: 52px;
+  height: 52px;
+}
 
-/* Portrait : disposition adaptée */
+/* ---- Portrait : jauges et menu en haut, objectif dessous, barre rapide tout en bas ---- */
 @media (orientation: portrait) {
-  #bars {
-    width: 150px;
-  }
   #objective {
-    top: auto;
-    bottom: calc(212px + var(--sab));
+    top: calc(88px + var(--sat));
     left: calc(8px + var(--sal));
-    transform: none;
-    max-width: calc(100vw - 16px);
     right: calc(8px + var(--sar));
-  }
-  #menu-buttons {
-    flex-wrap: wrap;
-    width: 120px;
-    justify-content: flex-end;
-  }
-  #quickbar {
-    bottom: calc(210px + var(--sab));
-    left: auto;
-    right: calc(8px + var(--sar));
-    transform: none;
-  }
-  #objective {
-    bottom: calc(272px + var(--sab));
   }
   #joy-zone {
-    width: 50vw;
-    height: 40vh;
+    bottom: calc(66px + var(--sab));
+    width: 52vw;
+    height: 38vh;
   }
   #joy-base {
-    left: calc(90px + var(--sal));
+    left: calc(78px + var(--sal));
+    top: calc(100% - 78px);
   }
   #action-buttons {
-    width: 190px;
+    bottom: calc(68px + var(--sab));
+    width: 172px;
+    height: 150px;
+  }
+  #btn-attack {
+    width: 84px;
+    height: 84px;
+    right: 0;
+    bottom: 0;
+  }
+  #btn-action {
+    width: 72px;
+    height: 72px;
+    right: 92px;
+    bottom: 2px;
+  }
+  #btn-dodge {
+    width: 56px;
+    height: 56px;
+    right: 14px;
+    bottom: 92px;
   }
 }
-@media (max-height: 420px) and (orientation: landscape) {
+
+/* ---- Paysage : une seule rangée en haut, commandes aux coins, barre rapide au centre en bas ---- */
+@media (orientation: landscape) {
+  #status {
+    width: 184px;
+  }
   #objective {
-    max-width: 36vw;
+    top: calc(6px + var(--sat));
+    left: calc(204px + var(--sal));
+    right: calc(136px + var(--sar));
+    max-width: 440px;
   }
-  #obj-toggle {
-    font-size: 12px;
-    min-height: 34px;
-    padding: 4px 10px;
+  #joy-zone {
+    bottom: 0;
+    width: 33vw;
+    height: 64vh;
   }
-  #obj-detail {
-    font-size: 12px;
+  #joy-base {
+    left: calc(84px + var(--sal));
+    top: calc(100% - 78px - var(--sab));
   }
-  #bars {
-    width: 170px;
+  #joy-hint {
+    bottom: calc(4px + var(--sab));
   }
-  .mbtn .mlbl {
-    display: none;
+  #action-buttons {
+    bottom: calc(8px + var(--sab));
+    width: 186px;
+    height: 156px;
   }
-  .mbtn {
-    min-width: 48px;
-    height: 48px;
+  #btn-attack {
+    width: 88px;
+    height: 88px;
+    right: 0;
+    bottom: 0;
+  }
+  #btn-action {
+    width: 76px;
+    height: 76px;
+    right: 96px;
+    bottom: 2px;
+  }
+  #btn-dodge {
+    width: 58px;
+    height: 58px;
+    right: 15px;
+    bottom: 96px;
+  }
+}
+@media (orientation: landscape) and (max-height: 430px) {
+  #status {
+    width: 172px;
+    padding: 4px 6px;
+    gap: 2px;
+  }
+  #objective {
+    left: calc(192px + var(--sal));
   }
 }
 
@@ -574,7 +587,7 @@ body.no-touch #joy-hint {
   top: calc(64px + var(--sat));
   left: 50%;
   transform: translateX(-50%);
-  width: min(520px, 92vw);
+  width: min(460px, 70vw);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -582,15 +595,20 @@ body.no-touch #joy-hint {
 }
 @media (orientation: portrait) {
   #toasts {
-    top: calc(120px + var(--sat));
+    top: calc(142px + var(--sat));
+    width: calc(100vw - 24px);
+  }
+  /* au plus deux messages à la fois pour garder le centre dégagé */
+  .toast:nth-last-child(n + 3) {
+    display: none;
   }
 }
 .toast {
-  background: rgba(20, 15, 10, 0.88);
+  background: rgba(20, 15, 10, 0.85);
   border-left: 4px solid var(--gold);
-  padding: 6px 12px;
+  padding: 5px 10px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   animation: toastIn 0.2s ease-out;
   max-width: 100%;
 }
@@ -1049,5 +1067,102 @@ body.no-touch #joy-hint {
   .statsgrid {
     margin: 6px 0 8px;
     font-size: 14px;
+  }
+}
+
+/* ---------------- Menu compact et détail d'objectif ---------------- */
+#panel-layer.anchored {
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding-top: calc(66px + var(--sat));
+  background: rgba(8, 6, 4, 0.35);
+}
+.panel.hub {
+  width: min(300px, 100%);
+}
+.hub-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hub-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+.hub-btn .ico {
+  width: 34px;
+}
+.hub-lbl {
+  display: flex;
+  flex-direction: column;
+}
+.hub-lbl b {
+  font-size: 16px;
+}
+.hub-lbl small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.obj-h {
+  margin: 0 0 6px;
+  color: var(--gold);
+  font-size: 17px;
+}
+.obj-prog {
+  color: var(--good);
+  font-weight: 700;
+}
+.obj-done {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Barre de construction compacte en paysage : une seule rangée, centre dégagé */
+@media (orientation: landscape) {
+  #placebar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px 10px;
+    width: min(640px, calc(100vw - 40px - var(--sal) - var(--sar)));
+    padding: 6px 10px;
+    bottom: calc(6px + var(--sab));
+  }
+  #placebar.hidden {
+    display: none;
+  }
+  #place-info {
+    flex-direction: column;
+    gap: 0;
+    font-size: 14px;
+  }
+  #place-buttons {
+    margin-top: 0;
+  }
+  #place-buttons .pbtn {
+    min-width: 96px;
+    min-height: 48px;
+  }
+  #place-rot {
+    display: none;
+  }
+  #place-help {
+    grid-column: 1 / -1;
+    margin-top: 0;
+    font-size: 11px;
+  }
+}
+@media (orientation: landscape) and (max-height: 430px) {
+  #place-help {
+    display: none;
   }
 }

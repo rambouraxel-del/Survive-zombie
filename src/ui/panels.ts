@@ -11,6 +11,7 @@ import {
 import type { Game } from '../sim/game';
 import { countItem } from '../sim/inventory';
 import { repairBuildingAction, repairCost, startFinalAssault } from '../sim/interact';
+import { currentObjective, OBJECTIVES } from '../sim/objectives';
 import type { Settings } from '../settings';
 import { ZONE_NAMES, FOG_CELL } from '../world/world';
 import { $, clear, h } from './dom';
@@ -330,6 +331,44 @@ export function mapPanel(host: PanelHost): HTMLElement {
 }
 
 // ------------------------------------------------------------ menus
+/** Menu compact regroupant les accès de gestion (le sac reste accessible directement). */
+export function hubPanel(host: PanelHost): HTMLElement {
+  const entry = (key: string, label: string, sub: string, panelName: string) =>
+    h('button', { class: 'hub-btn', onclick: () => host.openPanel(panelName) }, icon(key, 30), h('span', { class: 'hub-lbl' }, h('b', { text: label }), h('small', { text: sub })));
+  const body = h('div', { class: 'hub-grid' },
+    entry('world:i_hammer', 'Fabriquer', 'Outils, armes, repas', 'craft'),
+    entry('world:i_planks', 'Construire', 'Camp et défenses', 'build'),
+    entry('items:i_map', 'Carte', 'Lieux découverts', 'map'),
+    entry('items:i_note', 'Objectif', 'Détails et conseils', 'objective'),
+    entry('items:i_chest', 'Pause', 'Options, sauvegarde…', 'pause'),
+  );
+  const p = panel('Menu', host, body, { narrow: true });
+  p.classList.add('hub');
+  return p;
+}
+
+/** Détail de l'objectif en cours (le jeu est en pause pendant la lecture). */
+export function objectivePanel(host: PanelHost): HTMLElement {
+  const g = host.game;
+  const o = currentObjective(g);
+  const body = h('div', {});
+  if (o) {
+    body.append(h('h3', { class: 'obj-h', text: o.title }));
+    const prog = o.progress?.(g);
+    if (prog) body.append(h('p', { class: 'obj-prog', text: prog }));
+    body.append(h('p', { text: o.hint }));
+  } else {
+    body.append(h('h3', { class: 'obj-h', text: g.final.state === 'won' ? 'La forêt est libérée' : 'Survivre' }), h('p', { text: 'Tous les objectifs sont accomplis. Continuez à explorer, construire et survivre.' }));
+  }
+  const done = OBJECTIVES.filter((x) => g.completed.has(x.id));
+  if (done.length) {
+    body.append(h('p', { class: 'note-muted', text: 'Déjà accomplis :' }));
+    body.append(h('ul', { class: 'obj-done' }, ...done.map((x) => h('li', { text: x.title }))));
+  }
+  body.append(h('div', { class: 'actions' }, h('button', { class: 'btn primary', text: 'Reprendre', onclick: () => host.closePanel() })));
+  return panel('Objectif', host, body, { narrow: true });
+}
+
 export function pausePanel(host: PanelHost): HTMLElement {
   const body = h('div', { class: 'menu-list' },
     h('button', { class: 'btn primary', text: 'Reprendre', onclick: () => host.closePanel() }),

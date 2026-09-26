@@ -11,6 +11,16 @@ import { restoreSanctuary, startFinalAssault, takeFragment } from './sim/interac
 const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
 
 async function boot(): Promise<void> {
+  // Test des encoches : ?safe=haut,bas,gauche,droite (px CSS) simule les zones de sécurité d'un iPhone
+  const safe = new URLSearchParams(location.search).get('safe');
+  if (safe) {
+    const [t, b, l, r] = safe.split(',').map((v) => `${Number(v) || 0}px`);
+    const st = document.documentElement.style;
+    st.setProperty('--sat', t);
+    st.setProperty('--sab', b ?? '0px');
+    st.setProperty('--sal', l ?? '0px');
+    st.setProperty('--sar', r ?? '0px');
+  }
   // empêche le zoom par pincement / double-tap sur iOS
   document.addEventListener('gesturestart', (e) => e.preventDefault());
   document.addEventListener('dblclick', (e) => e.preventDefault());
