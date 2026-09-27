@@ -48,6 +48,7 @@ export class App implements P.PanelHost, SceneHost {
   /** résolution réduite automatiquement (qualité « automatique ») */
   lowRes = false;
   private slowFor = 0;
+  private kbdTime = 0;
   onResolutionChange: (() => void) | null = null;
   private collect: { el: HTMLElement; items: Map<string, number>; t: number } | null = null;
 
@@ -157,6 +158,15 @@ export class App implements P.PanelHost, SceneHost {
     this.hud?.update(g, dt);
     this.updateJoyHint(dt);
     this.watchPerformance(dt, fps);
+    // aide clavier : masquée une fois apprise (réactivable dans les options)
+    if (document.body.classList.contains('kbd-mode') && !this.settings.learned.includes('keys') && !this.isSimPaused()) {
+      this.kbdTime += dt;
+      if (this.kbdTime > 90) {
+        this.settings.learned.push('keys');
+        saveSettings(this.settings);
+      }
+    }
+    document.body.classList.toggle('keys-learned', this.settings.learned.includes('keys'));
     this.layoutT -= dt;
     if (this.layoutT <= 0) {
       this.layoutT = 1;
@@ -654,7 +664,7 @@ export class App implements P.PanelHost, SceneHost {
     const seed = (Math.random() * 2 ** 31) >>> 0;
     const g = Game.newGame(seed);
     this.startGame(g);
-    this.gate('Un ancien camp abandonné', 'Vous émergez des bois et découvrez un camp déserté. Le soleil est encore haut : récoltez, fabriquez un outil et préparez-vous avant la nuit. L’objectif en haut de l’écran vous guide.', 'Commencer');
+    this.gate('Un ancien camp abandonné', 'Vous émergez des bois et découvrez un camp déserté. Le soleil est encore haut : fouillez le camp, récoltez, fabriquez un outil et préparez-vous avant la nuit. L’objectif en haut de l’écran vous guide (touchez-le pour les détails ou pour passer l’introduction).', 'Commencer');
     void this.saveNow('start');
   }
 

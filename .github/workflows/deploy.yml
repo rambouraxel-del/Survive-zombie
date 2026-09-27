@@ -45,7 +45,7 @@ jobs:
           grep -q '/src/main.ts' dist/index.html && { echo "dist/index.html contient encore /src/main.ts"; exit 1; } || true
           grep -Eq 'src="\./assets/index-[^"]+\.js"' dist/index.html
           grep -Eq 'href="\./assets/index-[^"]+\.css"' dist/index.html
-          test -f dist/assets/atlas/world.png && test -f dist/assets/chars/player.png
+          test -f dist/assets/atlas/world.png && test -f dist/assets/chars/player.png && test -f dist/assets/chars/equip.png
       - name: Setup Pages
         uses: actions/configure-pages@v6
       - name: Upload artifact
@@ -68,8 +68,10 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - name: Vérifier l’URL publique
+      - name: Vérifier l’URL publique (dont la version servie = ce commit)
         run: node tests/e2e/check-deployed.mjs "${{ needs.deploy.outputs.page_url }}"
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
       - name: Captures d’écran du site publié
         if: always()
         uses: actions/upload-artifact@v7

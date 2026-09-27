@@ -1,6 +1,6 @@
 // Mesures de performance dans Chromium (Playwright) : coût de la simulation, de la mise à jour
 // de la scène, du rendu Phaser (CPU) et de l'interface, par scénario.
-// Usage : node tests/e2e/perf.mjs <url> [fichier_json] [--throttle=4] [--width=844 --height=390] [--dpr=2]
+// Usage : node tests/e2e/perf.mjs <url> [fichier_json] [--throttle=4] [--width=844 --height=390] [--dpr=2] [--quality=high|eco|auto]
 // Limite : rendu WebGL logiciel (SwiftShader) sur machine virtuelle — les valeurs absolues ne
 // représentent pas un téléphone ; elles servent à comparer les scénarios et les versions.
 import fs from 'node:fs';
@@ -16,6 +16,8 @@ const DPR = arg('dpr', 2);
 
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: DPR, hasTouch: true, isMobile: true });
+const quality = (process.argv.find((a) => a.startsWith('--quality=')) ?? '').split('=')[1];
+if (quality) await ctx.addInitScript((q) => localStorage.setItem('bdc-settings', JSON.stringify({ quality: q })), quality);
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
@@ -117,5 +119,5 @@ results.menus = await measure('menus ouverts/fermés', () => { const g = window.
 const env = await page.evaluate(() => ({ ua: navigator.userAgent, w: innerWidth, h: innerHeight, dpr: devicePixelRatio, renderer: window.__phaser.renderer.type === 2 ? 'WebGL' : 'Canvas', canvas: `${window.__phaser.canvas.width}×${window.__phaser.canvas.height}` }));
 console.log(JSON.stringify(env));
 if (errors.length) console.log('Erreurs :', errors.slice(0, 5));
-if (outFile) fs.writeFileSync(outFile, JSON.stringify({ env: { ...env, throttle }, results }, null, 1));
+if (outFile) fs.writeFileSync(outFile, JSON.stringify({ env: { ...env, throttle, quality: quality ?? 'auto' }, results }, null, 1));
 await browser.close();

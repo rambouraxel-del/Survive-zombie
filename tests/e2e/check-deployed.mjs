@@ -34,7 +34,7 @@ check('le HTML référence un JS compilé', !!js && /assets\/index-.*\.js$/.test
 check('le HTML référence un CSS compilé', !!css && /assets\/index-.*\.css$/.test(css), css ?? 'absent');
 
 // 2. fichiers compilés et assets sous le sous-chemin
-const urls = [js, css, 'favicon.png', 'assets/atlas/world.json', 'assets/atlas/world.png', 'assets/atlas/items.png', 'assets/tiles/terrain_summer.png', 'assets/chars/player.png', 'assets/audio/music_title.mp3', 'assets/manifest.json'].filter(Boolean);
+const urls = [js, css, 'favicon.png', 'assets/atlas/world.json', 'assets/atlas/world.png', 'assets/atlas/items.png', 'assets/tiles/terrain_summer.png', 'assets/chars/player.png', 'assets/chars/equip.png', 'assets/chars/equip.json', 'assets/audio/music_title.mp3', 'assets/manifest.json'].filter(Boolean);
 for (const u of urls) {
   const full = new URL(u, base).href;
   const r = await fetch(full);
@@ -59,6 +59,10 @@ const styled = await page.evaluate(() => getComputedStyle(document.body).backgro
 check('styles CSS appliqués', styled === 'rgb(22, 18, 14)', styled);
 await page.screenshot({ path: path.join(OUT, '1-titre.png') });
 check('écran titre affiché', title);
+// version réellement servie (diagnostic des caches) : identifiant affiché sur l'écran titre
+const version = title ? ((await page.locator('.screen .version').textContent().catch(() => '')) ?? '') : '';
+const expected = (process.env.EXPECTED_SHA ?? '').slice(0, 7);
+check('version affichée' + (expected ? ' = commit déployé' : ''), /Version \S+/.test(version) && (!expected || version.includes(expected)), `${version.trim()}${expected ? ` (attendu ${expected})` : ''}`);
 if (title) {
   await page.getByText('Nouvelle partie').first().click();
   const c = page.getByRole('button', { name: 'Nouvelle partie' });
@@ -98,6 +102,37 @@ if (title) {
   }));
   check('image du jeu non vide (couleurs variées)', varied > 8, `${varied} teintes`);
   await page.screenshot({ path: path.join(OUT, '2-jeu.png') });
+
+  // interface : le sac s'ouvre (jeu en pause) et ses onglets mènent à la fabrication
+  await page.locator('#m-inv').tap();
+  await page.waitForTimeout(200);
+  const tabs = await page.locator('#panel-layer .main-tabs .tab').allTextContents();
+  await page.locator('#panel-layer .main-tabs .tab', { hasText: 'Fabriquer' }).tap();
+  await page.waitForTimeout(200);
+  const recipes = await page.locator('#panel-layer .recipe').count();
+  check('interface : sac et onglets (fabrication)', tabs.length === 4 && recipes > 10, `${tabs.map((t) => t.replace(/[A-Z]$/, '')).join(', ')} · ${recipes} recettes`);
+  await page.screenshot({ path: path.join(OUT, '3-fabrication.png') });
+  await page.locator('#panel-layer .close').first().tap();
+
+  // reprise de sauvegarde : position et inventaire restaurés après rechargement
+  const before = await page.evaluate(async () => {
+    const g = window.__app.game;
+    g.player.inv[10] = { id: 'wood', qty: 7 };
+    g.player.x += 32;
+    await window.__app.saveNow('manual');
+    return { x: Math.round(g.player.x), y: Math.round(g.player.y), wood: g.player.inv.reduce((n, s) => n + (s && s.id === 'wood' ? s.qty : 0), 0) };
+  });
+  await page.reload();
+  let resumed = false;
+  try {
+    await page.waitForSelector('text=Continuer', { timeout: 45000 });
+    await page.getByText('Continuer', { exact: true }).tap();
+    await page.waitForSelector('text=Je suis prêt', { timeout: 30000 });
+    await page.getByText('Je suis prêt').tap();
+    resumed = true;
+  } catch { /* noté ci-dessous */ }
+  const after = resumed ? await page.evaluate(() => { const g = window.__app.game; return { x: Math.round(g.player.x), y: Math.round(g.player.y), wood: g.player.inv.reduce((n, s) => n + (s && s.id === 'wood' ? s.qty : 0), 0) }; }) : null;
+  check('reprise de sauvegarde après rechargement', resumed && JSON.stringify(after) === JSON.stringify(before), `${JSON.stringify(before)} / ${JSON.stringify(after)}`);
 }
 const real = errors.filter((e) => !/AudioContext|GPU stall|WebGL/.test(e));
 check('aucune erreur console / ressource manquante', real.length === 0, real.slice(0, 5).join(' | '));

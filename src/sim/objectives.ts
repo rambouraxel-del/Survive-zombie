@@ -98,7 +98,10 @@ export const OBJECTIVES: Objective[] = [
     intro: true,
     title: 'Préparer la première nuit',
     hint: 'Avant le crépuscule : une arme, de quoi manger et un feu de camp (Menu → Construire). Quelques palissades aident, sans être obligatoires.',
-    progress: (g) => nightChecklist(g).filter((x) => !x.optional).map((x) => (x.done ? '✓' : '·')).join(' ') + ' arme · repas · feu',
+    progress: (g) => {
+      const [arme, , feu] = nightChecklist(g);
+      return `Arme ${arme.done ? '✓' : '·'} · Repas ${Math.min(foodPortions(g), 3)}/3 · Feu ${feu.done ? '✓' : '·'}`;
+    },
     checklist: (g) => nightChecklist(g),
     done: (g) => nightChecklist(g).filter((x) => !x.optional).every((x) => x.done),
   },
