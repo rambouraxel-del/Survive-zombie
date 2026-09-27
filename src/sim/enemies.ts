@@ -44,10 +44,10 @@ export function spawnEnemy(g: Game, type: EnemyType, x: number, y: number, kind:
   const d = ENEMIES[type];
   const e: Enemy = {
     id: g.nextEnemyId++, type, x, y, hp: d.hp, state: kind === 'ambient' || kind === 'guardian' ? 'wander' : 'chase',
-    facing: 'down', tx: x, ty: y, path: [], pathIdx: 0, repathT: Math.random() * 0.5, blockerId: -1,
+    facing: 'down', tx: x, ty: y, path: [], pathIdx: 0, repathT: g.rng.next() * 0.5, blockerId: -1,
     windup: 0, windupTarget: 'player', cooldown: 0, wanderT: 0, searchT: 0, lostT: 0,
     lastSeenX: g.player.x, lastSeenY: g.player.y, kbx: 0, kby: 0, hurtT: 0, dying: 0, kind,
-    perceiveT: Math.random() * 0.3, groanT: 3 + Math.random() * 8, stuckT: 0, lastX: x, lastY: y, moving: false,
+    perceiveT: g.rng.next() * 0.3, groanT: 3 + g.rng.next() * 8, stuckT: 0, lastX: x, lastY: y, moving: false,
   };
   g.enemies.push(e);
   grid.clear();
@@ -199,7 +199,7 @@ export function updateEnemies(g: Game, dt: number): void {
       }
       e.groanT -= 0.25;
       if (e.groanT <= 0 && distP < 12 * TILE) {
-        e.groanT = 5 + Math.random() * 9;
+        e.groanT = 5 + g.rng.next() * 9;
         g.emit({ type: 'sound', key: `zgroan_${g.rng.int(0, 3)}`, x: e.x, y: e.y });
         // un grognement entendu indique une direction (pas une position exacte, pas à travers la carte)
         if (distP < 10 * TILE) g.emit({ type: 'threat', x: e.x, y: e.y, kind: 'sound' });
@@ -240,8 +240,8 @@ export function updateEnemies(g: Game, dt: number): void {
     } else if (e.state === 'wander') {
       e.wanderT -= dt;
       if (e.wanderT <= 0) {
-        e.wanderT = 3 + Math.random() * 5;
-        const a = Math.random() * Math.PI * 2;
+        e.wanderT = 3 + g.rng.next() * 5;
+        const a = g.rng.next() * Math.PI * 2;
         e.tx = e.x + Math.cos(a) * 4 * TILE;
         e.ty = e.y + Math.sin(a) * 4 * TILE;
         // les gardiens restent près de leur lieu
@@ -273,7 +273,7 @@ export function updateEnemies(g: Game, dt: number): void {
     if (usePath) {
       e.repathT -= dt;
       if (e.repathT <= 0) {
-        e.repathT = 0.7 + Math.random() * 0.4;
+        e.repathT = 0.7 + g.rng.next() * 0.4;
         const sx = Math.floor(e.x / TILE);
         const sy = Math.floor(e.y / TILE);
         const tx = Math.max(0, Math.min(w.w - 1, Math.floor(goalX / TILE)));
