@@ -49,6 +49,7 @@ export interface Building {
   x: number; // tuile en haut à gauche
   y: number;
   hp: number;
+  level?: number; // 2 = amélioré
   items?: Slots;
   meat?: number;
   trapTimer?: number;
@@ -69,6 +70,10 @@ export interface Landmark {
   y: number;
   icon: string;
   discovered: boolean;
+  /** petite scène d'exploration (nouvelles parties) : distance de découverte réduite */
+  scene?: boolean;
+  /** zombies qui gardent le meilleur butin de la scène (apparaissent à l'approche) */
+  guards?: ('rodeur' | 'affame' | 'brute')[];
 }
 
 export const FOG_CELL = 4; // tuiles par cellule de brouillard
@@ -93,6 +98,8 @@ export class World {
   landmarks: Landmark[] = [];
   start = { x: 0, y: 0 };
   sanctuaryId = -1;
+  /** version du générateur (1 = mondes d'origine, 2 = avec scènes d'exploration) */
+  genVersion = 1;
   outsideDirty = true;
   private outside: Uint8Array | null = null;
   buildVersion = 0; // incrémenté à chaque pose/retrait (invalide les chemins)

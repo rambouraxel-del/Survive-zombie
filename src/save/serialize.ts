@@ -7,9 +7,18 @@ import { generateWorld } from '../world/generate';
 import { Game } from '../sim/game';
 import type { Slots, Stack } from '../sim/inventory';
 import { spawnEnemy } from '../sim/enemies';
-import type { Assault, FinalState, Stats, Facing } from '../sim/types';
+import type { Assault, FinalState, Stats, Facing, MapMarker } from '../sim/types';
+import { emptyHotbar, HOTBAR_SIZE, isHotbarAssignable, isHotbarUseful, type Hotbar } from '../sim/hotbar';
+import { normalizeObjectives } from '../sim/objectives';
+import { RECIPE_ENTRIES } from '../data/recipes';
 
-export const SAVE_VERSION = 1;
+/**
+ * Historique des versions :
+ *  1 — version d'origine ;
+ *  2 — barre rapide indépendante, marqueurs de carte, recette suivie, tutoriel passé,
+ *      niveau des constructions, version du générateur de monde.
+ */
+export const SAVE_VERSION = 2;
 export const SAVE_TAG = 'les-bois-de-cendre';
 
 export interface SaveData {
@@ -26,7 +35,7 @@ export interface SaveData {
     inv: Slots; equip: { weapon: Stack | null; tool: Stack | null; armor: Stack | null };
   };
   objects: { id: number; hp?: number; depleted?: boolean; regrowAt?: number; items?: Slots | null; opened?: boolean; taken?: boolean }[];
-  buildings: { id: number; type: string; x: number; y: number; hp: number; items?: Slots; meat?: number; trapTimer?: number }[];
+  buildings: { id: number; type: string; x: number; y: number; hp: number; items?: Slots; meat?: number; trapTimer?: number; level?: number }[];
   bags: { id: number; x: number; y: number; items: Slots; kind: 'death' | 'chest' | 'drop' }[];
   nextBagId: number;
   nextBuildingId: number;
@@ -41,6 +50,14 @@ export interface SaveData {
   fragmentsTaken: string[];
   deathBagId: number;
   victorySeen: boolean;
+  // v2
+  genVersion?: number;
+  hotbar?: Hotbar;
+  hotbarSeen?: string[];
+  pinned?: string | null;
+  markers?: MapMarker[];
+  nextMarkerId?: number;
+  tutorialSkipped?: boolean;
 }
 
 function b64(u: Uint8Array): string {
@@ -77,7 +94,7 @@ export function serialize(g: Game): SaveData {
     objects: w.objects
       .filter((o) => o.depleted || o.opened || o.taken || (o.hp !== undefined && o.maxHp !== undefined && o.hp < o.maxHp))
       .map((o) => ({ id: o.id, hp: o.hp, depleted: o.depleted, regrowAt: o.regrowAt, items: o.items ? copySlots(o.items) : o.items, opened: o.opened, taken: o.taken })),
-    buildings: [...w.buildings.values()].map((b) => ({ id: b.id, type: b.type, x: b.x, y: b.y, hp: b.hp, items: b.items ? copySlots(b.items) : undefined, meat: b.meat, trapTimer: b.trapTimer })),
+    buildings: [...w.buildings.values()].map((b) => ({ id: b.id, type: b.type, x: b.x, y: b.y, hp: b.hp, items: b.items ? copySlots(b.items) : undefined, meat: b.meat, trapTimer: b.trapTimer, level: b.level })),
     bags: [...w.bags.values()].map((b) => ({ id: b.id, x: b.x, y: b.y, items: copySlots(b.items), kind: b.kind })),
     nextBagId: w.nextBagId,
     nextBuildingId: w.nextBuildingId,
@@ -92,7 +109,50 @@ export function serialize(g: Game): SaveData {
     fragmentsTaken: [...g.fragmentsTaken],
     deathBagId: g.deathBagId,
     victorySeen: g.victorySeen,
+    genVersion: g.genVersion,
+    hotbar: g.hotbar.map((h) => (h ? { ...h } : null)),
+    hotbarSeen: [...g.hotbarSeen],
+    pinned: g.pinned,
+    markers: g.markers.map((m) => ({ ...m })),
+    nextMarkerId: g.nextMarkerId,
+    tutorialSkipped: g.tutorialSkipped,
   };
+}
+
+// ------------------------------------------------------------ migration
+/**
+ * Convertit une sauvegarde d'une version antérieure vers la version courante, sans
+ * perte ni duplication d'objets (aucun objet n'est déplacé ni créé).
+ */
+export function migrateSave(d: SaveData): SaveData {
+  const out: SaveData = JSON.parse(JSON.stringify(d));
+  if (out.v < 2) {
+    // le monde d'origine est conservé tel quel
+    out.genVersion = 1;
+    // barre rapide : les objets utiles des 5 premières cases de l'ancien sac, puis
+    // l'équipement et les soins/aliments possédés, sans doublon
+    const hb: Hotbar = emptyHotbar();
+    const ids: string[] = [];
+    const push = (id: string | undefined) => {
+      if (!id || ids.includes(id) || !isHotbarUseful(id) || ids.length >= HOTBAR_SIZE) return;
+      ids.push(id);
+    };
+    for (const st of out.player.inv.slice(0, 5)) push(st?.id);
+    push(out.player.equip.weapon?.id);
+    push(out.player.equip.tool?.id);
+    for (const st of out.player.inv) if (st && ITEMS[st.id].kind === 'consumable') push(st.id);
+    for (const st of out.player.inv) if (st && ITEMS[st.id].kind === 'food') push(st.id);
+    ids.forEach((id, i) => (hb[i] = { id, manual: false }));
+    out.hotbar = hb;
+    out.hotbarSeen = [...ids];
+    out.pinned = null;
+    out.markers = [];
+    out.nextMarkerId = 1;
+    out.tutorialSkipped = false;
+    out.stats = { ...out.stats, craftedBy: out.stats.craftedBy ?? {}, scenesVisited: out.stats.scenesVisited ?? [] };
+    out.v = 2;
+  }
+  return out;
 }
 
 // ------------------------------------------------------------ validation
@@ -153,14 +213,27 @@ export function validateSave(data: unknown): { ok: true; data: SaveData } | { ok
   if (!d.final || !['locked', 'ready', 'active', 'won'].includes(d.final.state)) errors.push('état final invalide');
   if (!d.stats || typeof d.stats !== 'object') errors.push('statistiques manquantes');
   if (typeof d.fog !== 'string') errors.push('carte manquante');
+  if (d.hotbar !== undefined) {
+    if (!Array.isArray(d.hotbar) || d.hotbar.length !== HOTBAR_SIZE) errors.push('barre rapide invalide');
+    else for (const h of d.hotbar) if (h !== null && (typeof h !== 'object' || !ITEMS[h.id] || !isHotbarAssignable(h.id))) errors.push('raccourci invalide');
+  }
+  if (d.markers !== undefined) {
+    if (!Array.isArray(d.markers)) errors.push('marqueurs invalides');
+    else for (const m of d.markers) if (!m || !isNum(m.x) || !isNum(m.y) || typeof m.name !== 'string' || !['resource', 'danger', 'camp', 'revisit'].includes(m.cat)) errors.push('marqueur invalide');
+  }
+  if (d.pinned !== undefined && d.pinned !== null && !RECIPE_ENTRIES.some((e) => e.key === d.pinned)) errors.push('recette suivie inconnue');
+  if (d.genVersion !== undefined && (!isNum(d.genVersion) || d.genVersion < 1 || d.genVersion > 2)) errors.push('version du monde inconnue');
   if (errors.length) return { ok: false, error: `Sauvegarde corrompue (${errors.slice(0, 3).join(' ; ')}).` };
-  return { ok: true, data: d };
+  return { ok: true, data: migrateSave(d) };
 }
 
 // ------------------------------------------------------------ chargement
-export function deserialize(d: SaveData): Game {
-  const { world } = generateWorld(d.seed);
+export function deserialize(input: SaveData): Game {
+  const d = migrateSave(input);
+  const genVersion = d.genVersion ?? 1;
+  const { world } = generateWorld(d.seed, genVersion);
   const g = new Game(world, d.seed);
+  g.genVersion = genVersion;
   g.clock = d.clock;
   g.day = d.day;
   g.dayTime = d.dayTime;
@@ -199,6 +272,8 @@ export function deserialize(d: SaveData): Game {
   }
   for (const b of d.buildings) {
     const nb = world.addBuilding(b.type, b.x, b.y, b.hp, b.id);
+    if (b.level && b.level >= 2 && BUILDING_BY_ID[b.type].upgrade) nb.level = 2;
+    // le contenu est toujours conservé en entier (un coffre agrandi garde ses 24 cases)
     if (b.items && nb.items) nb.items = copySlots(b.items);
     if (b.meat !== undefined) nb.meat = b.meat;
     if (b.trapTimer !== undefined) nb.trapTimer = b.trapTimer;
@@ -216,11 +291,18 @@ export function deserialize(d: SaveData): Game {
   g.final = { ...d.final };
   if (g.final.state === 'active') g.final.spawnedWave = g.enemies.some((e) => e.kind === 'final');
   g.freed = !!d.freed;
-  g.stats = { ...g.stats, ...d.stats };
+  g.stats = { ...g.stats, ...d.stats, craftedBy: { ...(d.stats.craftedBy ?? {}) }, scenesVisited: [...(d.stats.scenesVisited ?? [])] };
   g.completed = new Set(d.completed);
   g.fragmentsTaken = [...d.fragmentsTaken];
   g.deathBagId = d.deathBagId;
   g.victorySeen = !!d.victorySeen;
+  g.hotbar = (d.hotbar ?? emptyHotbar()).map((h) => (h && ITEMS[h.id] ? { id: h.id, manual: !!h.manual } : null));
+  g.hotbarSeen = new Set(d.hotbarSeen ?? []);
+  g.pinned = d.pinned ?? null;
+  g.markers = (d.markers ?? []).map((m) => ({ ...m }));
+  g.nextMarkerId = Math.max(d.nextMarkerId ?? 1, ...g.markers.map((m) => m.id + 1), 1);
+  g.tutorialSkipped = !!d.tutorialSkipped;
+  normalizeObjectives(g);
   if (g.final.state !== 'locked') {
     world.objects[world.sanctuaryId].sprite = 'world:seal_stone_on';
     g.sanctuaryRestored = true;

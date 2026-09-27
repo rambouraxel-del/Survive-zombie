@@ -3,7 +3,7 @@ import type { InputState } from '../../src/sim/types';
 import { TILE } from '../../src/config/balance';
 
 export function idle(): InputState {
-  return { mx: 0, my: 0, sprint: false, attack: false, interact: false, dodge: false };
+  return { mx: 0, my: 0, sprint: false, attack: false, interact: false, dodge: false, attackTap: false, interactTap: false };
 }
 
 export function run(g: Game, seconds: number, input: InputState = idle()): void {

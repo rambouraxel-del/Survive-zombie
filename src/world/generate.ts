@@ -3,7 +3,7 @@
 import { WORLD_H, WORLD_W } from '../config/balance';
 import { NOTES } from '../data/notes';
 import { Rng } from '../sim/rng';
-import { World, ZONES, type ObjType, type WObj, type Zone } from './world';
+import { World, ZONES, type Landmark, type ObjType, type WObj, type Zone } from './world';
 
 interface P {
   x: number;
@@ -162,8 +162,9 @@ function placeHouses(b: Builder): void {
   for (const [s, x, y, fw, fh] of houses) b.add('house', s, x, y, fw, fh, true, { occluder: true });
 }
 
-export function generateWorld(seed: number): { world: World; report: GenReport } {
+export function generateWorld(seed: number, genVersion = 1): { world: World; report: GenReport } {
   const w = new World(WORLD_W, WORLD_H, seed);
+  w.genVersion = genVersion;
   const r = new Rng(seed);
   const b = new Builder(w, r);
   w.start = { ...POI.start };
@@ -356,6 +357,10 @@ export function generateWorld(seed: number): { world: World; report: GenReport }
   cluster({ x: 58, y: 66 }, 'ore_coal', 4);
   cluster({ x: 44, y: 100 }, 'ore_coal', 3);
 
+  // --- Scènes d'exploration (générateur v2 : nouvelles parties uniquement) ---
+  const scenes = genVersion >= 2 ? placeScenes(b, new Rng((seed ^ 0x5ce2e5) >>> 0)) : [];
+  if (scenes.length) fixDiagonals(w);
+
   // --- Remplissage végétal ---
   const order: number[] = [];
   for (let i = 0; i < w.w * w.h; i++) order.push(i);
@@ -414,8 +419,106 @@ export function generateWorld(seed: number): { world: World; report: GenReport }
     { id: 'cemetery', name: 'Cimetière', x: c.x, y: c.y, icon: 'items:i_frag_2', discovered: false },
     { id: 'stones', name: 'Pierres noires', x: st.x, y: st.y, icon: 'items:i_frag_3', discovered: false },
     { id: 'sanctuary', name: 'Sanctuaire du Loup', x: sa.x + 1, y: sa.y + 1, icon: 'world:seal_stone', discovered: false },
+    ...scenes,
   ];
   return { world: w, report };
+}
+
+// ------------------------------------------------------------ scènes d'exploration
+type Piece = [ObjType, string, number, number, number, number, boolean, Partial<WObj>?];
+
+interface SceneDef {
+  id: string;
+  name: string;
+  icon: string;
+  w: number; // emprise réservée (tuiles)
+  h: number;
+  pieces: Piece[];
+  guards?: ('rodeur' | 'affame' | 'brute')[];
+  where: (p: P, w: World) => boolean;
+}
+
+const SCENES: SceneDef[] = [
+  {
+    // bivouac : récompense modeste, sans danger particulier
+    id: 'sc_bivouac', name: 'Bivouac abandonné', icon: 'world:campfire_off', w: 6, h: 5,
+    pieces: [
+      ['decor', 'world:campfire_off', 2, 2, 1, 1, true],
+      ['decor', 'world:hay_pile', 3, 0, 2, 2, false],
+      ['decor', 'world:barrel', 0, 1, 1, 1, true],
+      ['container', 'world:crate_b', 4, 3, 1, 1, true, { loot: 'bivouac', items: null, label: 'Paquetage abandonné' }],
+      ['note', 'world:paper', 1, 3, 1, 1, false, { noteId: 'n_bivouac' }],
+    ],
+    where: (p, w) => w.zoneAt(p.x, p.y) === 'forest' && p.y > 100 && dist(p, POI.start) > 18 && dist(p, POI.start) < 34,
+  },
+  {
+    // barricade : petite sacoche sûre devant, caisses de la garde derrière, gardées
+    id: 'sc_barricade', name: 'Barricade brisée', icon: 'world:fence_h', w: 7, h: 5,
+    pieces: [
+      ['decor', 'world:fence_h', 0, 2, 1, 1, true],
+      ['decor', 'world:fence_post', 1, 2, 1, 1, true],
+      ['decor', 'world:fence_h', 4, 2, 1, 1, true],
+      ['decor', 'world:fence_h', 5, 2, 1, 1, true],
+      ['decor', 'world:spikes', 6, 2, 1, 1, true],
+      ['decor', 'world:crate', 0, 0, 1, 1, true],
+      ['container', 'world:crate_stack', 5, 0, 1, 1, true, { loot: 'barricade', items: null, label: 'Caisses de la garde' }],
+      ['container', 'world:barrel', 2, 4, 1, 1, true, { loot: 'pouch', items: null, label: 'Tonnelet oublié' }],
+      ['note', 'world:paper', 3, 1, 1, 1, false, { noteId: 'n_barricade' }],
+      ['decor', 'world:bones', 3, 3, 1, 1, false],
+    ],
+    guards: ['rodeur', 'rodeur', 'affame'],
+    where: (p, w) => w.zoneAt(p.x, p.y) === 'forest' && dist(p, POI.hamlet) > 20 && dist(p, POI.hamlet) < 36 && dist(p, POI.start) > 24,
+  },
+  {
+    // tombe ouverte : meilleur butin, gardien plus dangereux
+    id: 'sc_tomb', name: 'Tombe ouverte', icon: 'world:tomb_slab', w: 5, h: 4,
+    pieces: [
+      ['container', 'world:tomb_slab', 1, 1, 2, 1, true, { loot: 'tomb', items: null, label: 'Tombe ouverte' }],
+      ['decor', 'world:skull', 0, 2, 1, 1, false],
+      ['decor', 'world:bones', 3, 0, 1, 1, false],
+      ['decor', 'items:grave_cross_b', 4, 1, 1, 1, true],
+      ['note', 'world:paper', 2, 3, 1, 1, false, { noteId: 'n_tomb' }],
+    ],
+    guards: ['affame', 'rodeur'],
+    where: (p, w) => w.zoneAt(p.x, p.y) === 'forest' && dist(p, POI.cemetery) > 16 && dist(p, POI.cemetery) < 30 && dist(p, POI.start) > 26,
+  },
+  {
+    // réserve de chasseurs : provisions, pièges relevés
+    id: 'sc_hunters', name: 'Réserve de chasseurs', icon: 'world:trap_full', w: 6, h: 4,
+    pieces: [
+      ['container', 'world:crate_stack', 0, 0, 1, 1, true, { loot: 'hunters', items: null, label: 'Réserve des chasseurs' }],
+      ['decor', 'world:barrels', 1, 0, 2, 1, true],
+      ['decor', 'world:trap_full', 4, 1, 1, 1, false],
+      ['decor', 'world:trap', 5, 3, 1, 1, false],
+      ['decor', 'world:crate', 3, 0, 1, 1, true],
+      ['note', 'world:paper', 2, 2, 1, 1, false, { noteId: 'n_hunters' }],
+    ],
+    where: (p, w) => w.zoneAt(p.x, p.y) === 'forest' && p.y > 60 && dist(p, POI.start) > 20 && dist(p, POI.hamlet) > 22 && dist(p, POI.cemetery) > 18,
+  },
+];
+
+/** Place chaque scène sur un terrain libre (hors chemins), avec une allée dégagée autour. */
+function placeScenes(b: Builder, r: Rng): Landmark[] {
+  const w = b.w;
+  const out: Landmark[] = [];
+  const placed: P[] = [];
+  for (const sc of SCENES) {
+    for (let k = 0; k < 3000; k++) {
+      const x = r.int(8, w.w - 8 - sc.w);
+      const y = r.int(54, w.h - 8 - sc.h);
+      const c = { x: x + sc.w / 2, y: y + sc.h / 2 };
+      if (!sc.where(c, w) || placed.some((q) => dist(q, c) < 22)) continue;
+      if (!b.free(x - 1, y - 1, sc.w + 2, sc.h + 2, false, 0)) continue;
+      for (const [type, sprite, dx, dy, fw, fh, solid, extra] of sc.pieces) b.add(type, sprite, x + dx, y + dy, fw, fh, solid, extra ?? {});
+      // terre battue et emprise réservée : la végétation ne recouvre pas la scène
+      b.dirtDisc(c.x, c.y, Math.max(sc.w, sc.h) / 2 - 0.4);
+      for (let yy = y - 1; yy < y + sc.h + 1; yy++) for (let xx = x - 1; xx < x + sc.w + 1; xx++) if (w.inBounds(xx, yy)) w.reserved[w.idx(xx, yy)] = 1;
+      placed.push(c);
+      out.push({ id: sc.id, name: sc.name, x: Math.round(c.x), y: Math.round(c.y), icon: sc.icon, discovered: false, scene: true, guards: sc.guards });
+      break;
+    }
+  }
+  return out;
 }
 
 /** Parcours en largeur depuis le départ (obstacles statiques uniquement). */
@@ -495,11 +598,11 @@ export function validate(w: World, repair: boolean): GenReport {
  * Point d'entrée : génère le monde ; en cas d'échec de validation malgré les
  * corridors de secours, on essaie des graines dérivées (repli déterministe).
  */
-export function createWorld(seed: number): { world: World; report: GenReport; usedSeed: number } {
+export function createWorld(seed: number, genVersion = 2): { world: World; report: GenReport; usedSeed: number } {
   let last: { world: World; report: GenReport } | null = null;
   for (let k = 0; k < 6; k++) {
     const s = (seed + k * 7919) >>> 0;
-    last = generateWorld(s);
+    last = generateWorld(s, genVersion);
     if (last.report.ok) return { ...last, usedSeed: s };
   }
   return { ...last!, usedSeed: last!.world.seed };

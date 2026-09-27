@@ -11,8 +11,13 @@ import { Rng } from './rng';
 import type { Assault, Enemy, FinalState, GameEvent, InputState, PlayerState, Projectile, Stats } from './types';
 import { updateEnemies, updateSpawning, damageEnemy, enemiesNear } from './enemies';
 import { interactionTarget, type Target } from './interact';
+import { autoAssignHotbar, emptyHotbar, type Hotbar } from './hotbar';
+import type { MapMarker } from './types';
 
 export type Phase = 'day' | 'dusk' | 'night' | 'dawn';
+
+/** durée pendant laquelle un appui ponctuel reste en attente (s) */
+const INPUT_BUFFER = 0.3;
 
 export const PHASE_NAMES: Record<Phase, string> = { day: 'Jour', dusk: 'Crépuscule', night: 'Nuit', dawn: 'Aube' };
 
@@ -21,7 +26,7 @@ export function makePlayer(x: number, y: number): PlayerState {
     x, y, facing: 'down', aimX: 0, aimY: 1,
     hp: PLAYER.maxHealth, hunger: 85, stamina: PLAYER.maxStamina,
     inv: makeSlots(24), equip: { weapon: null, tool: null, armor: null },
-    invuln: 0, attackCd: 0, actionT: 0, action: 'none', pendingHit: 0,
+    invuln: 0, attackCd: 0, actionT: 0, action: 'none', actionItem: null, pendingHit: 0,
     dodgeT: 0, dodgeX: 0, dodgeY: 0, staminaDelay: 0, sinceHurt: 99,
     regenT: 0, regenRate: 0, healT: 0, healRate: 0,
     dead: false, deathT: 0, moving: false, sprinting: false, exhausted: false,
@@ -44,13 +49,34 @@ export class Game {
   stats: Stats = {
     collected: {}, crafted: {}, built: {}, ate: 0, kills: 0, deaths: 0,
     nightsSurvived: 0, notesRead: [], cursedVisited: [], guardiansSpawned: [], playTime: 0,
+    craftedBy: {}, scenesVisited: [],
   };
+  /** barre rapide indépendante du sac */
+  hotbar: Hotbar = emptyHotbar();
+  /** objets déjà proposés automatiquement en raccourci */
+  hotbarSeen = new Set<string>();
+  /** recette suivie (épinglée) */
+  pinned: string | null = null;
+  markers: MapMarker[] = [];
+  nextMarkerId = 1;
+  /** version du générateur de monde (les anciennes parties gardent leur monde) */
+  genVersion = 2;
+  tutorialSkipped = false;
+  /** cible choisie explicitement au toucher (prioritaire quelques secondes) */
+  forcedTarget: { key: string; until: number } | null = null;
+  /** dernière cible, pour éviter qu'elle change trop vite entre deux objets voisins */
+  lastTargetKey = '';
+  lastHarvestType = '';
+  lastHarvestAt = -99;
+  /** appuis ponctuels en attente (s restantes) */
+  private attackBuffer = 0;
+  private interactBuffer = 0;
   completed = new Set<string>();
   fragmentsTaken: string[] = [];
   depleted = new Set<number>();
   events: GameEvent[] = [];
   target: Target | null = null;
-  private timers = { fog: 0, objectives: 0, regrow: 0, spawn: 0, autosave: 0, step: 0 };
+  private timers = { fog: 0, objectives: 0, regrow: 0, spawn: 0, autosave: 0, step: 0, hotbar: 0 };
   lastPhase: Phase = 'day';
   deathBagId = -1;
   sanctuaryRestored = false;
@@ -68,9 +94,10 @@ export class Game {
     this.lastPhase = this.phase();
   }
 
-  static newGame(seed: number): Game {
-    const { world } = createWorld(seed);
+  static newGame(seed: number, genVersion = 2): Game {
+    const { world } = createWorld(seed, genVersion);
     const g = new Game(world, world.seed);
+    g.genVersion = genVersion;
     g.world.discover(g.player.x, g.player.y, 10);
     return g;
   }
@@ -373,7 +400,8 @@ export class Game {
       p.hp = Math.min(PLAYER.maxHealth, p.hp + p.regenRate * dt);
     }
     if (p.hunger >= PLAYER.regenMinHunger && p.sinceHurt > PLAYER.regenCombatDelay && p.hp < PLAYER.maxHealth) {
-      const mult = this.nearLitFire() ? PLAYER.regenRestMult : 1;
+      const fire = this.nearLitFire();
+      const mult = fire === 2 ? PLAYER.regenRestMult * 1.5 : fire ? PLAYER.regenRestMult : 1;
       p.hp = Math.min(PLAYER.maxHealth, p.hp + PLAYER.regenFedPerSec * mult * dt);
     }
 
@@ -437,12 +465,35 @@ export class Game {
 
     // actions
     if (p.actionT > 0) p.actionT -= dt;
+    else if (p.action !== 'none') {
+      p.action = 'none';
+      p.actionItem = null;
+    }
     if (p.pendingHit > 0) {
       p.pendingHit -= dt;
       if (p.pendingHit <= 0) this.resolveMelee();
     }
-    if (input.attack && p.attackCd <= 0 && p.actionT <= 0) this.attack();
-    else if (input.interact && p.actionT <= 0 && this.harvestCd <= 0) this.interact();
+    // appui ponctuel : mis en attente brièvement pour ne jamais être perdu (ex. appui et
+    // relâchement entre deux pas de simulation, ou pendant la fin d'une animation)
+    if (input.attackTap) {
+      input.attackTap = false;
+      this.attackBuffer = INPUT_BUFFER;
+    }
+    if (input.interactTap) {
+      input.interactTap = false;
+      this.interactBuffer = INPUT_BUFFER;
+    }
+    this.attackBuffer = Math.max(0, this.attackBuffer - dt);
+    this.interactBuffer = Math.max(0, this.interactBuffer - dt);
+    const wantAttack = input.attack || this.attackBuffer > 0;
+    const wantInteract = input.interact || this.interactBuffer > 0;
+    if (wantAttack && p.attackCd <= 0 && p.actionT <= 0) {
+      this.attackBuffer = 0;
+      this.attack();
+    } else if (wantInteract && p.actionT <= 0 && this.harvestCd <= 0) {
+      this.interactBuffer = 0;
+      this.interact();
+    }
 
     // torche : se consume la nuit
     const t = p.equip.tool;
@@ -452,10 +503,33 @@ export class Game {
     }
   }
 
-  nearLitFire(): boolean {
+  /** 0 = aucun feu proche, 1 = feu de camp, 2 = feu amélioré (zone plus large) */
+  nearLitFire(): 0 | 1 | 2 {
     const p = this.player;
-    for (const b of this.nearbyBuildings(p.x, p.y, 3.2 * TILE)) if (b.type === 'campfire') return true;
-    return false;
+    let best: 0 | 1 | 2 = 0;
+    for (const b of this.nearbyBuildings(p.x, p.y, 4.5 * TILE)) {
+      if (b.type !== 'campfire') continue;
+      const c = this.world.buildingCenter(b);
+      const d = Math.hypot(c.x - p.x, c.y - p.y);
+      if ((b.level ?? 1) >= 2 && d <= 4.5 * TILE) best = 2;
+      else if (d <= 3.2 * TILE && best === 0) best = 1;
+    }
+    return best;
+  }
+
+  /** Niveau de la station la plus proche à portée (0 si aucune). */
+  stationLevel(st: Station): number {
+    if (st === 'hand') return 1;
+    const p = this.player;
+    let lvl = 0;
+    for (const b of this.nearbyBuildings(p.x, p.y, 4 * TILE)) {
+      const d = BUILDING_BY_ID[b.type];
+      if (d.station !== st) continue;
+      const dx = Math.max(b.x * TILE - p.x, 0, p.x - (b.x + d.w) * TILE);
+      const dy = Math.max(b.y * TILE - p.y, 0, p.y - (b.y + d.h) * TILE);
+      if (Math.hypot(dx, dy) <= 1.8 * TILE) lvl = Math.max(lvl, b.level ?? 1);
+    }
+    return lvl;
   }
 
   nearbyBuildings(x: number, y: number, r: number): Building[] {
@@ -478,17 +552,7 @@ export class Game {
   }
 
   nearStation(st: Station): boolean {
-    if (st === 'hand') return true;
-    const p = this.player;
-    for (const b of this.nearbyBuildings(p.x, p.y, 4 * TILE)) {
-      const d = BUILDING_BY_ID[b.type];
-      if (d.station !== st) continue;
-      // distance au bord de la construction
-      const dx = Math.max(b.x * TILE - p.x, 0, p.x - (b.x + d.w) * TILE);
-      const dy = Math.max(b.y * TILE - p.y, 0, p.y - (b.y + d.h) * TILE);
-      if (Math.hypot(dx, dy) <= 1.8 * TILE) return true;
-    }
-    return false;
+    return this.stationLevel(st) > 0;
   }
 
   // ---------------------------------------------------------------- combat
@@ -512,6 +576,7 @@ export class Game {
       p.aimY = (aimAt.y - p.y) / d;
       p.facing = Math.abs(p.aimX) > Math.abs(p.aimY) ? (p.aimX < 0 ? 'left' : 'right') : p.aimY < 0 ? 'up' : 'down';
     }
+    p.actionItem = this.player.equip.weapon?.id ?? (wd ? this.player.equip.tool?.id ?? null : null);
     if (w.ranged) {
       if (countItem(p.inv, 'arrow') <= 0) {
         this.toast('Plus de flèches ! Fabriquez-en à l’établi.', 'warn');
@@ -649,9 +714,13 @@ export class Game {
         return;
       }
     }
-    p.action = 'slash';
-    p.actionT = 0.34;
+    // avec un outil : geste de bûcheron / carrier (animation dédiée du pack d'outils LPC)
+    p.action = toolStack ? 'chop' : 'slash';
+    p.actionItem = toolStack ? toolStack.id : null;
+    p.actionT = toolStack ? 0.4 : 0.34;
     this.harvestCd = toolType ? 0.46 : 0.3;
+    this.lastHarvestType = o.type;
+    this.lastHarvestAt = this.clock;
     const cx = (o.fx + o.fw / 2) * TILE;
     const cy = (o.fy + o.fh) * TILE - 8;
     const dx = cx - p.x;
@@ -669,7 +738,12 @@ export class Game {
     this.emit({ type: 'sound', key: sound, x: cx, y: cy });
     this.emit({ type: 'hitfx', x: cx, y: cy - 12 });
     this.emit({ type: 'objChanged', id: o.id });
+    this.emit({ type: 'harvestHit', objId: o.id, hp: Math.max(0, o.hp ?? 0), maxHp: o.maxHp ?? 1, power, tool: toolStack?.id ?? null });
     if (toolType) this.noise(cx, cy, HARVEST.noiseRadius);
+    // l'avantage d'un outil est annoncé au bon moment (une seule fois)
+    if (toolType === 'axe' && !toolStack && (o.maxHp ?? 1) > 1) this.emit({ type: 'hint', id: 'axe', text: 'À mains nues, un arbre demande 6 coups. Une hache de pierre le coupe en 3.' });
+    if (toolType === 'pick' && !toolStack && (o.maxHp ?? 1) > 1) this.emit({ type: 'hint', id: 'pick', text: 'Une masse de carrier casse les rochers deux fois plus vite et extrait le minerai.' });
+    if (toolStack && power >= 2) this.emit({ type: 'hint', id: `tool_${toolStack.id}`, text: `${item(toolStack.id).name} : ${Math.ceil((o.maxHp ?? 1) / power)} coups au lieu de ${o.maxHp ?? 1}.` });
     if ((o.hp ?? 0) > 0) return;
 
     // ressource obtenue
@@ -702,6 +776,7 @@ export class Game {
     for (const [id, n] of yields) {
       this.give(id, n, undefined, true);
       this.emit({ type: 'float', x: cx, y: fy, text: `+${n} ${item(id).name}`, color: '#d9f7a6' });
+      this.emit({ type: 'collect', id, n });
       fy -= 14;
     }
     this.depleteObject(o);
@@ -842,8 +917,9 @@ export class Game {
       t.fog = 0.4;
       this.world.discover(p.x, p.y, 10);
       for (const lm of this.world.landmarks) {
-        if (!lm.discovered && Math.hypot((lm.x + 0.5) * TILE - p.x, (lm.y + 0.5) * TILE - p.y) < 13 * TILE) {
+        if (!lm.discovered && Math.hypot((lm.x + 0.5) * TILE - p.x, (lm.y + 0.5) * TILE - p.y) < (lm.scene ? 8 : 13) * TILE) {
           lm.discovered = true;
+          if (lm.scene && !this.stats.scenesVisited.includes(lm.id)) this.stats.scenesVisited.push(lm.id);
           this.emit({ type: 'landmark', name: lm.name });
           this.toast(`Lieu découvert : ${lm.name}`, 'good');
         }
@@ -865,6 +941,11 @@ export class Game {
         this.emit({ type: 'objective', id });
         this.emit({ type: 'save', reason: 'objective' });
       }
+    }
+    t.hotbar -= dt;
+    if (t.hotbar <= 0) {
+      t.hotbar = 0.2;
+      autoAssignHotbar(this);
     }
     t.regrow -= dt;
     if (t.regrow <= 0) {

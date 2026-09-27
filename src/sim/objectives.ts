@@ -1,45 +1,106 @@
-// Objectifs : tutoriel intégré puis quête principale.
-// Les conditions reposent sur des statistiques cumulées depuis le début :
+// Objectifs : courte introduction jouable puis quête principale.
+// Les conditions reposent sur des statistiques cumulées ou sur l'état du monde :
 // un objectif déjà réalisé avant son activation est validé immédiatement.
+// L'introduction peut être passée ; les anciennes sauvegardes ne la refont pas.
 import type { Game } from './game';
-import { FRAGMENTS } from '../data/items';
+import { FRAGMENTS, item } from '../data/items';
+import { countItem } from './inventory';
 
 export interface Objective {
   id: string;
   title: string;
   hint: string;
+  /** progression courte (ligne d'objectif) */
   progress?: (g: Game) => string;
+  /** détails (panneau d'objectif) : lignes de liste à cocher */
+  checklist?: (g: Game) => { label: string; done: boolean; optional?: boolean }[];
   done: (g: Game) => boolean;
+  /** fait partie de l'introduction (peut être passé) */
+  intro?: boolean;
 }
 
 const c = (g: Game, id: string) => g.stats.collected[id] ?? 0;
 const built = (g: Game, id: string) => (g.stats.built[id] ?? 0) > 0;
+const inBag = (g: Game, id: string) => countItem(g.player.inv, id);
+
+/** Nourriture disponible dans le sac (nombre de portions). */
+export function foodPortions(g: Game): number {
+  return g.player.inv.reduce((n, s) => n + (s && item(s.id).food ? s.qty : 0), 0);
+}
+
+export function hasWeapon(g: Game): boolean {
+  const e = g.player.equip;
+  const usable = (s: typeof e.weapon) => !!s && s.dur !== 0 && !!item(s.id).weapon;
+  return usable(e.weapon) || usable(e.tool) || g.player.inv.some((s) => usable(s) && item(s!.id).kind === 'weapon');
+}
+
+export function defensesCount(g: Game): number {
+  let n = 0;
+  for (const b of g.world.buildings.values()) if (b.type === 'palisade' || b.type === 'door' || b.type === 'spikes') n++;
+  return n;
+}
+
+/** Liste indicative de préparation à la nuit (non bloquante). */
+export function nightChecklist(g: Game): { label: string; done: boolean; optional?: boolean }[] {
+  return [
+    { label: 'Une arme en main (lance, hache ou massue)', done: hasWeapon(g) },
+    { label: `De quoi manger : ${Math.min(foodPortions(g), 3)}/3 portions`, done: foodPortions(g) >= 3 },
+    { label: 'Un feu de camp allumé', done: [...g.world.buildings.values()].some((b) => b.type === 'campfire') },
+    { label: `Quelques défenses : ${Math.min(defensesCount(g), 3)}/3 palissades, portes ou pieux`, done: defensesCount(g) >= 3, optional: true },
+  ];
+}
+
+const startChestOpened = (g: Game) => g.world.objects.some((o) => o.guaranteed === 'start_chest' && o.opened);
 
 export const OBJECTIVES: Objective[] = [
   {
+    id: 'o_chest',
+    intro: true,
+    title: 'Fouiller le coffre du camp',
+    hint: 'Le coffre est au bord de la clairière. Approchez-vous : le bouton d’action affiche « Fouiller ». Prenez tout.',
+    done: (g) => startChestOpened(g),
+  },
+  {
+    id: 'o_note',
+    intro: true,
+    title: 'Lire le carnet du bûcheron',
+    hint: 'Une feuille traîne près du camp. Elle explique ce qui rôde ici la nuit.',
+    done: (g) => g.stats.notesRead.includes('n_camp'),
+  },
+  {
     id: 'o_gather',
+    intro: true,
     title: 'Récolter du bois, de la pierre et des fibres',
-    hint: 'Approchez-vous d’un arbre, d’un rocher ou d’herbes hautes et appuyez sur le bouton d’action.',
+    hint: 'Touchez « Action » devant un arbre (Couper), un rocher (Miner) ou des herbes hautes (Arracher). Les ressources proches sont signalées.',
     progress: (g) => `Bois ${Math.min(c(g, 'wood'), 3)}/3 · Pierre ${Math.min(c(g, 'stone'), 3)}/3 · Fibres ${Math.min(c(g, 'fiber'), 2)}/2`,
+    checklist: (g) => [
+      { label: `Bois récolté : ${Math.min(c(g, 'wood'), 3)}/3 (dans le sac : ${inBag(g, 'wood')})`, done: c(g, 'wood') >= 3 },
+      { label: `Pierre récoltée : ${Math.min(c(g, 'stone'), 3)}/3 (dans le sac : ${inBag(g, 'stone')})`, done: c(g, 'stone') >= 3 },
+      { label: `Fibres récoltées : ${Math.min(c(g, 'fiber'), 2)}/2 (dans le sac : ${inBag(g, 'fiber')})`, done: c(g, 'fiber') >= 2 },
+    ],
     done: (g) => c(g, 'wood') >= 3 && c(g, 'stone') >= 3 && c(g, 'fiber') >= 2,
   },
   {
     id: 'o_tool',
-    title: 'Fabriquer un outil',
-    hint: 'Ouvrez « Fabriquer » et créez une hache de pierre, une masse ou une lance.',
+    intro: true,
+    title: 'Fabriquer un premier outil',
+    hint: 'Menu → Fabriquer : une hache de pierre coupe les arbres deux fois plus vite et sert d’arme ; une lance tient les zombies à distance.',
+    // quantités actuelles du sac (pas les quantités déjà récoltées) : pas d'ambiguïté après une dépense
+    progress: (g) => {
+      const need: [string, number][] = [['wood', 3], ['stone', 3], ['fiber', 2]];
+      const miss = need.filter(([id, n]) => inBag(g, id) < n);
+      return miss.length ? `Hache : il manque ${miss.map(([id, n]) => `${n - inBag(g, id)} ${item(id).name.toLowerCase()}`).join(', ')}` : 'Hache prête à fabriquer';
+    },
     done: (g) => ['stone_axe', 'stone_hammer', 'spear'].some((id) => (g.stats.crafted[id] ?? 0) > 0),
   },
   {
-    id: 'o_food',
-    title: 'Trouver de la nourriture et manger',
-    hint: 'Cueillez des myrtilles ou des morilles, puis touchez-les dans la barre rapide pour les manger.',
-    done: (g) => g.stats.ate > 0,
-  },
-  {
-    id: 'o_fire',
-    title: 'Installer un feu de camp',
-    hint: 'Ouvrez « Construire », choisissez le feu de camp, placez-le puis validez.',
-    done: (g) => built(g, 'campfire'),
+    id: 'o_prepare',
+    intro: true,
+    title: 'Préparer la première nuit',
+    hint: 'Avant le crépuscule : une arme, de quoi manger et un feu de camp (Menu → Construire). Quelques palissades aident, sans être obligatoires.',
+    progress: (g) => nightChecklist(g).filter((x) => !x.optional).map((x) => (x.done ? '✓' : '·')).join(' ') + ' arme · repas · feu',
+    checklist: (g) => nightChecklist(g),
+    done: (g) => nightChecklist(g).filter((x) => !x.optional).every((x) => x.done),
   },
   {
     id: 'o_base',
@@ -53,6 +114,7 @@ export const OBJECTIVES: Objective[] = [
     title: 'Préparer un abri et survivre à une nuit',
     hint: 'Construisez une paillasse (point de réapparition) et quelques palissades, puis tenez jusqu’à l’aube.',
     progress: (g) => `Paillasse ${built(g, 'bed') ? '✓' : '·'} · Nuits ${Math.min(g.stats.nightsSurvived, 1)}/1`,
+    checklist: (g) => [...nightChecklist(g), { label: 'Une paillasse (point de réapparition)', done: built(g, 'bed') }],
     done: (g) => built(g, 'bed') && g.stats.nightsSurvived >= 1,
   },
   {
@@ -83,6 +145,9 @@ export const OBJECTIVES: Objective[] = [
   },
 ];
 
+/** Anciens objectifs (sauvegardes v1) remplacés par l'introduction actuelle. */
+export const LEGACY_OBJECTIVES = ['o_food', 'o_fire'];
+
 export function evaluateObjectives(g: Game): string[] {
   const newly: string[] = [];
   for (const o of OBJECTIVES) {
@@ -99,6 +164,30 @@ export function evaluateObjectives(g: Game): string[] {
 
 export function currentObjective(g: Game): Objective | null {
   return OBJECTIVES.find((o) => !g.completed.has(o.id)) ?? null;
+}
+
+export function inIntro(g: Game): boolean {
+  return !!currentObjective(g)?.intro;
+}
+
+/** Passe l'introduction : les étapes restantes sont considérées comme faites. */
+export function skipIntro(g: Game): void {
+  g.tutorialSkipped = true;
+  for (const o of OBJECTIVES) if (o.intro) g.completed.add(o.id);
+}
+
+/**
+ * Cohérence après chargement : un objectif placé avant un objectif déjà accompli est
+ * considéré comme fait (une ancienne partie ne refait pas l'introduction).
+ */
+export function normalizeObjectives(g: Game): void {
+  let lastDone = -1;
+  OBJECTIVES.forEach((o, i) => {
+    if (g.completed.has(o.id)) lastDone = i;
+  });
+  // anciens objectifs de v1 : « manger » et « feu » équivalent à la fin de l'introduction
+  if (LEGACY_OBJECTIVES.some((id) => g.completed.has(id))) lastDone = Math.max(lastDone, OBJECTIVES.findIndex((o) => o.id === 'o_prepare'));
+  for (let i = 0; i <= lastDone; i++) g.completed.add(OBJECTIVES[i].id);
 }
 
 export { FRAGMENTS };

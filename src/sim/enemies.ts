@@ -177,7 +177,12 @@ export function updateEnemies(g: Game, dt: number): void {
       e.perceiveT = 0.25;
       const sight = d.sight * (night ? 1.35 : 1);
       if (!p.dead && e.state !== 'retreat' && distP < sight && lineOfSight(g, e.x, e.y - 16, p.x, p.y - 16)) {
-        if (e.state !== 'chase') e.repathT = 0;
+        if (e.state !== 'chase') {
+          e.repathT = 0;
+          // réaction visible (« ! ») et signal directionnel : il vous a vu
+          g.emit({ type: 'spotted', enemyId: e.id });
+          g.emit({ type: 'threat', x: e.x, y: e.y, kind: 'seen' });
+        }
         e.state = 'chase';
         e.lostT = 0;
         e.lastSeenX = p.x;
@@ -196,6 +201,8 @@ export function updateEnemies(g: Game, dt: number): void {
       if (e.groanT <= 0 && distP < 12 * TILE) {
         e.groanT = 5 + Math.random() * 9;
         g.emit({ type: 'sound', key: `zgroan_${g.rng.int(0, 3)}`, x: e.x, y: e.y });
+        // un grognement entendu indique une direction (pas une position exacte, pas à travers la carte)
+        if (distP < 10 * TILE) g.emit({ type: 'threat', x: e.x, y: e.y, kind: 'sound' });
       }
     }
     if (p.dead && e.state === 'chase') {
@@ -412,6 +419,28 @@ export function updateSpawning(g: Game, dt: number): void {
             e.lastSeenY = ly;
             break;
           }
+        }
+      }
+    }
+  }
+
+  // gardiens des scènes d'exploration : ils rôdent autour du meilleur butin
+  for (const lm of g.world.landmarks) {
+    if (!lm.scene || !lm.guards || g.stats.guardiansSpawned.includes(lm.id)) continue;
+    const lx = (lm.x + 0.5) * TILE;
+    const ly = (lm.y + 0.5) * TILE;
+    if (Math.hypot(lx - p.x, ly - p.y) > 20 * TILE) continue;
+    g.stats.guardiansSpawned.push(lm.id);
+    for (const t of lm.guards) {
+      for (let k = 0; k < 30; k++) {
+        const x = lx + g.rng.range(-4, 4) * TILE;
+        const y = ly + g.rng.range(-4, 4) * TILE;
+        if (Math.hypot(x - p.x, y - p.y) < 9 * TILE) continue;
+        if (g.world.passableForEnemy(Math.floor(x / TILE), Math.floor(y / TILE))) {
+          const e = spawnEnemy(g, t, x, y, 'guardian');
+          e.lastSeenX = lx;
+          e.lastSeenY = ly;
+          break;
         }
       }
     }

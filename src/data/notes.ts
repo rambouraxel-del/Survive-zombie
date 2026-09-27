@@ -14,6 +14,10 @@ export const NOTES: NoteDef[] = [
   { id: 'n_smith', zone: 'hamlet', title: 'Note du forgeron', text: 'Deux mesures de minerai pour une de charbon. Le charbon de bois fait l’affaire si les filons sont trop loin. Le fer seul tient tête aux grosses brutes.' },
   { id: 'n_cemetery', zone: 'cemetery', title: 'Prière du fossoyeur', text: 'Les tombes se sont ouvertes par le dessous. Le second éclat repose dans la crypte, sous la pierre du loup. Que Dieu garde ceux qui iront le chercher.' },
   { id: 'n_corrupt', zone: 'corrupt', title: 'Page arrachée', text: 'Les arbres ont perdu leurs feuilles en une nuit. Le troisième éclat pulse au milieu des pierres noires. Plus on s’en approche, plus ils sont nombreux.' },
+  { id: 'n_bivouac', zone: 'forest', title: 'Mot laissé au bivouac', text: 'On a dormi ici deux nuits. La troisième, le feu s’est éteint et ils sont sortis des fougères. Garde ton feu vivant et ton arme sous la main : ils viennent quand il fait noir.' },
+  { id: 'n_barricade', zone: 'forest', title: 'Ordre de la garde', text: 'Tenir la barricade jusqu’à la relève. Les caisses de la garde restent derrière les pieux. Si tu entends grogner, ne cours pas vers le bruit.' },
+  { id: 'n_tomb', zone: 'forest', title: 'Épitaphe griffée', text: 'Ici reposait un voyageur. La dalle a été poussée de l’intérieur. Ce qu’on avait mis dans sa tombe y est encore, mais lui n’est pas loin.' },
+  { id: 'n_hunters', zone: 'forest', title: 'Registre des chasseurs', text: 'Réserve de la saison : viande séchée, cordes, flèches. Les pièges se relèvent au matin. Qui prend, laisse une marque sur la caisse.' },
   { id: 'n_sanctuary', zone: 'sanctuary', title: 'Inscription du sanctuaire', text: 'Réunis les trois éclats sur la pierre du loup. Quand le sceau sera entier, ils viendront tous. Tiens jusqu’à l’aube de la dernière vague, et la forêt sera libre.' },
 ];
 

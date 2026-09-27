@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TILE } from '../../src/config/balance';
-import { craft, place, useSlot } from '../../src/sim/actions';
+import { craft, place } from '../../src/sim/actions';
 import { addItem, countItem } from '../../src/sim/inventory';
 import { restoreSanctuary, startFinalAssault, takeFragment } from '../../src/sim/interact';
 import { currentObjective } from '../../src/sim/objectives';
@@ -69,21 +69,19 @@ describe('sauvegarde', () => {
 describe('objectifs et fin de partie', () => {
   it('les objectifs déjà accomplis sont reconnus à leur activation', () => {
     const g = freshGame();
-    // on mange et on fabrique AVANT d'avoir récolté
-    g.player.inv[0] = { id: 'berries', qty: 3 };
-    g.player.hunger = 50;
-    useSlot(g, 0);
+    // on fabrique une lance AVANT d'avoir ouvert le coffre, lu la note ou récolté
     addItem(g.player.inv, 'wood', 4);
     addItem(g.player.inv, 'fiber', 2);
     craft(g, 'r_spear');
-    expect(currentObjective(g)!.id).toBe('o_gather');
+    expect(currentObjective(g)!.id).toBe('o_chest');
+    const chest = g.world.objects.find((o) => o.guaranteed === 'start_chest')!;
+    g.openWorldContainer(chest);
+    g.stats.notesRead.push('n_camp');
     g.stats.collected = { wood: 3, stone: 3, fiber: 2 };
     run(g, 0.6);
-    // récolte, outil et nourriture validés d'un coup
-    expect(g.completed.has('o_gather')).toBe(true);
-    expect(g.completed.has('o_tool')).toBe(true);
-    expect(g.completed.has('o_food')).toBe(true);
-    expect(currentObjective(g)!.id).toBe('o_fire');
+    // coffre, note, récolte et outil validés d'un coup
+    for (const id of ['o_chest', 'o_note', 'o_gather', 'o_tool']) expect(g.completed.has(id), id).toBe(true);
+    expect(currentObjective(g)!.id).toBe('o_prepare');
   });
 
   it('parcours principal : fragments, sanctuaire, assaut final, victoire puis poursuite', () => {

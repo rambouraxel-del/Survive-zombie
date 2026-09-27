@@ -1,17 +1,26 @@
 // Entrées tactiles (multitouch) et clavier. Chaque commande suit son propre
 // identifiant de pointeur : marcher, attaquer et interagir ne se neutralisent pas.
+//
+// Trois natures d'entrée sont distinguées :
+//  - l'appui ponctuel (attaque, action, esquive) est mis en attente (`attackTap`…) et
+//    consommé par la simulation : il n'est jamais perdu, même très bref ;
+//  - l'état maintenu (joystick, bouton gardé enfoncé) sert au déplacement et à la récolte répétée ;
+//  - la répétition volontaire suit la cadence de l'arme ou de l'outil (gérée par la simulation).
 import type { InputState } from '../sim/types';
+
+export type InputKind = 'touch' | 'keyboard' | 'mouse';
 
 export interface ControlCallbacks {
   onQuickSlot: (i: number) => void;
   onShortcut: (name: 'inventory' | 'craft' | 'build' | 'map' | 'pause') => void;
   isBlocked: () => boolean; // un menu est ouvert : la simulation est en pause
+  onInputKind?: (k: InputKind) => void;
 }
 
-const JOY_RADIUS = 56;
+const BASE_JOY_RADIUS = 56;
 
 export class Controls {
-  state: InputState = { mx: 0, my: 0, sprint: false, attack: false, interact: false, dodge: false };
+  state: InputState = { mx: 0, my: 0, sprint: false, attack: false, interact: false, dodge: false, attackTap: false, interactTap: false };
   private keys = new Set<string>();
   private joyId: number | null = null;
   private joyOx = 0;
@@ -23,13 +32,19 @@ export class Controls {
   private joyBase: HTMLElement;
   private joyKnob: HTMLElement;
   private cb: ControlCallbacks;
+  /** rayon du joystick (px CSS), réglable */
+  joyRadius = BASE_JOY_RADIUS;
   touchUsed = false;
+  lastKind: InputKind | null = null;
 
   constructor(root: HTMLElement, cb: ControlCallbacks) {
     this.cb = cb;
     const zone = root.querySelector<HTMLElement>('#joy-zone')!;
     this.joyBase = root.querySelector<HTMLElement>('#joy-base')!;
     this.joyKnob = root.querySelector<HTMLElement>('#joy-knob')!;
+
+    // méthode d'entrée réellement utilisée (appareils hybrides : tactile + clavier/souris)
+    window.addEventListener('pointerdown', (e) => this.setKind(e.pointerType === 'mouse' ? 'mouse' : 'touch'), { capture: true });
 
     zone.addEventListener('pointerdown', (e) => {
       if (this.joyId !== null) return;
@@ -58,23 +73,24 @@ export class Controls {
     zone.addEventListener('pointercancel', endJoy);
     zone.addEventListener('lostpointercapture', endJoy);
 
-    this.holdButton(root.querySelector('#btn-attack')!, (v) => (this.state.attack = v), 'attack');
-    this.holdButton(root.querySelector('#btn-action')!, (v) => (this.state.interact = v), 'interact');
+    this.holdButton(root.querySelector('#btn-attack')!, 'attack');
+    this.holdButton(root.querySelector('#btn-action')!, 'interact');
     const dodge = root.querySelector<HTMLElement>('#btn-dodge')!;
     dodge.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.touchUsed = true;
-      this.state.dodge = true;
+      if (!this.cb.isBlocked()) this.state.dodge = true;
       dodge.classList.add('pressed');
     });
     const up = () => dodge.classList.remove('pressed');
     dodge.addEventListener('pointerup', up);
     dodge.addEventListener('pointercancel', up);
     dodge.addEventListener('pointerleave', up);
+    dodge.addEventListener('contextmenu', (e) => e.preventDefault());
 
     window.addEventListener('keydown', (e) => this.onKey(e, true));
     window.addEventListener('keyup', (e) => this.onKey(e, false));
-    // relâchement fiable
+    // relâchement fiable : perte de focus, arrière-plan, rotation, redimensionnement
     window.addEventListener('blur', () => this.reset());
     document.addEventListener('visibilitychange', () => this.reset());
     window.addEventListener('orientationchange', () => this.reset());
@@ -82,15 +98,28 @@ export class Controls {
     window.addEventListener('resize', () => this.releaseJoy());
   }
 
-  private holdButton(el: HTMLElement, set: (v: boolean) => void, which: 'attack' | 'interact'): void {
+  private setKind(k: InputKind): void {
+    if (k === this.lastKind) return;
+    this.lastKind = k;
+    this.cb.onInputKind?.(k);
+  }
+
+  private holdButton(el: HTMLElement, which: 'attack' | 'interact'): void {
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.touchUsed = true;
       if (which === 'attack') this.attackId = e.pointerId;
       else this.interactId = e.pointerId;
-      el.setPointerCapture(e.pointerId);
+      try {
+        el.setPointerCapture(e.pointerId);
+      } catch {
+        /* pointeur déjà relâché */
+      }
       el.classList.add('pressed');
-      set(true);
+      if (this.cb.isBlocked()) return;
+      // l'appui est mémorisé : même relâché avant le prochain pas de simulation, il agit
+      if (which === 'attack') this.state.attackTap = true;
+      else this.state.interactTap = true;
     });
     const end = (e: PointerEvent) => {
       const id = which === 'attack' ? this.attackId : this.interactId;
@@ -98,7 +127,6 @@ export class Controls {
       if (which === 'attack') this.attackId = null;
       else this.interactId = null;
       el.classList.remove('pressed');
-      set(false);
     };
     el.addEventListener('pointerup', end);
     el.addEventListener('pointercancel', end);
@@ -107,15 +135,16 @@ export class Controls {
   }
 
   private updateJoy(x: number, y: number): void {
+    const R = this.joyRadius;
     let dx = x - this.joyOx;
     let dy = y - this.joyOy;
     const d = Math.hypot(dx, dy);
-    if (d > JOY_RADIUS) {
-      dx = (dx / d) * JOY_RADIUS;
-      dy = (dy / d) * JOY_RADIUS;
+    if (d > R) {
+      dx = (dx / d) * R;
+      dy = (dy / d) * R;
     }
-    this.joyVx = dx / JOY_RADIUS;
-    this.joyVy = dy / JOY_RADIUS;
+    this.joyVx = dx / R;
+    this.joyVy = dy / R;
     this.joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
   }
 
@@ -136,9 +165,12 @@ export class Controls {
     if (down) this.keys.add(c);
     else this.keys.delete(c);
     if (!down || e.repeat) return;
+    this.setKind('keyboard');
     if (c === 'Escape') this.cb.onShortcut('pause');
     if (this.cb.isBlocked()) return;
     if (c === 'KeyK' || c === 'KeyX') this.state.dodge = true;
+    if (c === 'Space' || c === 'KeyJ') this.state.attackTap = true;
+    if (c === 'KeyE' || c === 'KeyF' || c === 'Enter') this.state.interactTap = true;
     if (c.startsWith('Digit')) {
       const n = Number(c.slice(5));
       if (n >= 1 && n <= 5) this.cb.onQuickSlot(n - 1);
@@ -184,6 +216,8 @@ export class Controls {
     this.interactId = null;
     this.state.attack = false;
     this.state.interact = false;
+    this.state.attackTap = false;
+    this.state.interactTap = false;
     this.state.dodge = false;
     this.state.mx = 0;
     this.state.my = 0;

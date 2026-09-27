@@ -76,6 +76,56 @@ export const LOOT: Record<string, LootTable> = {
   },
 };
 
+// Scènes d'exploration (nouvelles parties) : petite récompense sûre ou meilleur butin gardé
+LOOT.bivouac = {
+  rolls: [2, 3],
+  entries: [
+    { id: 'bread', min: 1, max: 2, weight: 4 },
+    { id: 'jerky', min: 1, max: 2, weight: 3 },
+    { id: 'bandage', min: 1, max: 1, weight: 3 },
+    { id: 'rope', min: 1, max: 1, weight: 2 },
+    { id: 'cloth', min: 1, max: 2, weight: 2 },
+  ],
+};
+LOOT.pouch = {
+  rolls: [1, 1],
+  entries: [
+    { id: 'bandage', min: 1, max: 1, weight: 3 },
+    { id: 'berries', min: 2, max: 4, weight: 2 },
+    { id: 'arrow', min: 3, max: 5, weight: 1 },
+  ],
+};
+LOOT.barricade = {
+  rolls: [3, 4],
+  entries: [
+    { id: 'scrap', min: 2, max: 4, weight: 4 },
+    { id: 'arrow', min: 6, max: 10, weight: 3 },
+    { id: 'planks', min: 2, max: 4, weight: 3 },
+    { id: 'iron', min: 1, max: 1, weight: 2 },
+    { id: 'bandage', min: 1, max: 2, weight: 2 },
+    { id: 'rope', min: 1, max: 2, weight: 2 },
+  ],
+};
+LOOT.tomb = {
+  rolls: [2, 4],
+  entries: [
+    { id: 'scrap', min: 2, max: 5, weight: 4 },
+    { id: 'iron', min: 1, max: 2, weight: 2 },
+    { id: 'cloth', min: 1, max: 3, weight: 3 },
+    { id: 'bandage', min: 1, max: 2, weight: 2 },
+  ],
+};
+LOOT.hunters = {
+  rolls: [2, 3],
+  entries: [
+    { id: 'jerky', min: 2, max: 3, weight: 4 },
+    { id: 'arrow', min: 6, max: 12, weight: 3 },
+    { id: 'rope', min: 1, max: 2, weight: 3 },
+    { id: 'meat_raw', min: 1, max: 2, weight: 2 },
+    { id: 'cloth', min: 1, max: 2, weight: 2 },
+  ],
+};
+
 // Contenus fixes (progression garantie)
 export const GUARANTEED: Record<string, { id: string; qty: number }[]> = {
   start_chest: [

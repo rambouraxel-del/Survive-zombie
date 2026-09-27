@@ -6,6 +6,9 @@ export interface Recipe {
   inputs: Record<string, number>;
   output: string;
   qty: number;
+  /** recettes regroupées dans une même fiche (plusieurs méthodes pour un même résultat) */
+  group?: string;
+  method?: string;
 }
 
 export const STATION_NAMES: Record<Station, string> = {
@@ -35,8 +38,8 @@ export const RECIPES: Recipe[] = [
   { id: 'r_stew', station: 'campfire', inputs: { meat_raw: 1, morel: 1, berries: 2 }, output: 'stew', qty: 1 },
   { id: 'r_charcoal', station: 'campfire', inputs: { wood: 3 }, output: 'coal', qty: 1 },
   // Forge
-  { id: 'r_ingot', station: 'forge', inputs: { iron_ore: 2, coal: 1 }, output: 'iron', qty: 1 },
-  { id: 'r_scrap_ingot', station: 'forge', inputs: { scrap: 3, coal: 1 }, output: 'iron', qty: 1 },
+  { id: 'r_ingot', station: 'forge', inputs: { iron_ore: 2, coal: 1 }, output: 'iron', qty: 1, group: 'iron', method: 'Fondre du minerai' },
+  { id: 'r_scrap_ingot', station: 'forge', inputs: { scrap: 3, coal: 1 }, output: 'iron', qty: 1, group: 'iron', method: 'Refondre de la ferraille' },
   { id: 'r_iron_axe', station: 'forge', inputs: { iron: 2, planks: 2, rope: 1 }, output: 'iron_axe', qty: 1 },
   { id: 'r_iron_pick', station: 'forge', inputs: { iron: 2, planks: 2, rope: 1 }, output: 'iron_pick', qty: 1 },
   { id: 'r_sword', station: 'forge', inputs: { iron: 3, planks: 1, cloth: 1 }, output: 'sword', qty: 1 },
@@ -44,3 +47,33 @@ export const RECIPES: Recipe[] = [
 ];
 
 export const RECIPE_BY_ID: Record<string, Recipe> = Object.fromEntries(RECIPES.map((r) => [r.id, r]));
+
+/** Entrées de la liste de fabrication : une recette seule, ou un groupe de méthodes. */
+export interface RecipeEntry {
+  key: string;
+  output: string;
+  station: RecipeStationKey;
+  recipes: Recipe[];
+}
+type RecipeStationKey = Recipe['station'];
+
+/** Ordre fixe (celui des définitions) : la liste ne bouge jamais sous le doigt. */
+export const RECIPE_ENTRIES: RecipeEntry[] = (() => {
+  const out: RecipeEntry[] = [];
+  for (const r of RECIPES) {
+    if (r.group) {
+      const e = out.find((x) => x.key === r.group);
+      if (e) {
+        e.recipes.push(r);
+        continue;
+      }
+      out.push({ key: r.group, output: r.output, station: r.station, recipes: [r] });
+    } else out.push({ key: r.id, output: r.output, station: r.station, recipes: [r] });
+  }
+  return out;
+})();
+
+/** Matériaux intermédiaires : fabriqués à partir d'autres ressources. */
+export function producingEntry(itemId: string): RecipeEntry | null {
+  return RECIPE_ENTRIES.find((e) => e.output === itemId) ?? null;
+}

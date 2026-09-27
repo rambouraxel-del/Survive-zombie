@@ -23,7 +23,9 @@ export interface PlayerState {
   invuln: number;
   attackCd: number;
   actionT: number; // durée restante de l'animation d'action
-  action: 'none' | 'slash' | 'thrust' | 'shoot';
+  action: 'none' | 'slash' | 'thrust' | 'shoot' | 'chop';
+  /** objet réellement utilisé pour l'action en cours (affiché en main) */
+  actionItem: string | null;
   pendingHit: number; // délai avant application du coup
   dodgeT: number;
   dodgeX: number;
@@ -103,15 +105,24 @@ export type GameEvent =
   | { type: 'bagsChanged' }
   | { type: 'save'; reason: string }
   | { type: 'landmark'; name: string }
-  | { type: 'ui'; panel: 'container' | 'note' | 'craft' | 'sanctuary' | 'bed'; ref?: string };
+  | { type: 'ui'; panel: 'container' | 'note' | 'craft' | 'sanctuary' | 'bed'; ref?: string }
+  | { type: 'harvestHit'; objId: number; hp: number; maxHp: number; power: number; tool: string | null }
+  | { type: 'threat'; x: number; y: number; kind: 'sound' | 'seen' }
+  | { type: 'spotted'; enemyId: number }
+  | { type: 'hint'; id: string; text: string }
+  | { type: 'collect'; id: string; n: number };
 
 export interface InputState {
   mx: number;
   my: number;
   sprint: boolean;
-  attack: boolean; // maintenu
-  interact: boolean; // maintenu
+  attack: boolean; // maintenu (répétition à la cadence de l'arme)
+  interact: boolean; // maintenu (récolte répétée)
   dodge: boolean; // front montant consommé par la simulation
+  /** appuis ponctuels mis en attente : consommés par la simulation, jamais perdus
+   * même si l'appui et le relâchement surviennent entre deux pas de simulation */
+  attackTap: boolean;
+  interactTap: boolean;
 }
 
 export interface Assault {
@@ -142,4 +153,17 @@ export interface Stats {
   cursedVisited: string[];
   guardiansSpawned: string[];
   playTime: number;
+  /** traçabilité par recette (ex. fer depuis minerai ou ferraille) */
+  craftedBy: Record<string, number>;
+  scenesVisited: string[];
+}
+
+export type MarkerCat = 'resource' | 'danger' | 'camp' | 'revisit';
+
+export interface MapMarker {
+  id: number;
+  x: number; // tuile
+  y: number;
+  cat: MarkerCat;
+  name: string;
 }

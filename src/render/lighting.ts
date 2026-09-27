@@ -1,11 +1,13 @@
 // Cycle lumineux calculé par le moteur : voile sombre et halos autour des sources.
-// Le voile est une petite texture canvas (taille de la vue en pixels du monde),
-// redessinée à chaque image : fond sombre puis halos « découpés » en dégradé.
+// Le voile est une petite texture canvas au quart de la résolution de la vue (les halos sont
+// des dégradés doux : aucune perte visible), redessinée à chaque image puis agrandie avec
+// un filtrage lissé. Diviser la taille par 4 divise par 16 le dessin et l'envoi au GPU.
 import Phaser from 'phaser';
 import { BUILDING_BY_ID } from '../data/buildings';
 import type { Game } from '../sim/game';
 
 const KEY = 'night-mask';
+const SCALE = 4; // pixels du monde par pixel du voile
 
 export class Lighting {
   private tex: Phaser.Textures.CanvasTexture;
@@ -16,7 +18,8 @@ export class Lighting {
   constructor(scene: Phaser.Scene) {
     if (scene.textures.exists(KEY)) scene.textures.remove(KEY);
     this.tex = scene.textures.createCanvas(KEY, 16, 16)!;
-    this.img = scene.add.image(0, 0, KEY).setOrigin(0, 0).setDepth(9e5);
+    this.tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.img = scene.add.image(0, 0, KEY).setOrigin(0, 0).setDepth(9e5).setScale(SCALE);
   }
 
   update(g: Game, view: Phaser.Geom.Rectangle, flicker: number): void {
@@ -26,8 +29,8 @@ export class Lighting {
       return;
     }
     this.img.setVisible(true);
-    const w = Math.ceil(view.width) + 4;
-    const h = Math.ceil(view.height) + 4;
+    const w = Math.ceil(view.width / SCALE) + 2;
+    const h = Math.ceil(view.height / SCALE) + 2;
     if (w !== this.w || h !== this.h) {
       this.tex.setSize(w, h);
       this.w = w;
@@ -35,8 +38,8 @@ export class Lighting {
       this.img.setTexture(KEY);
       this.img.setSize(w, h);
     }
-    const ox = Math.floor(view.x) - 2;
-    const oy = Math.floor(view.y) - 2;
+    const ox = Math.floor(view.x / SCALE) * SCALE - SCALE;
+    const oy = Math.floor(view.y / SCALE) * SCALE - SCALE;
     this.img.setPosition(ox, oy);
     const ctx = this.tex.getContext();
     ctx.globalCompositeOperation = 'source-over';
@@ -47,8 +50,9 @@ export class Lighting {
     ctx.globalCompositeOperation = 'destination-out';
     const light = (x: number, y: number, radius: number) => {
       if (x + radius < view.x || x - radius > view.right || y + radius < view.y || y - radius > view.bottom) return;
-      const cx = x - ox;
-      const cy = y - oy;
+      const cx = (x - ox) / SCALE;
+      const cy = (y - oy) / SCALE;
+      radius /= SCALE;
       const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
       grd.addColorStop(0, 'rgba(0,0,0,1)');
       grd.addColorStop(0.55, 'rgba(0,0,0,0.8)');
