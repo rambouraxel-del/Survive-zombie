@@ -11,6 +11,7 @@ import { Lighting } from './lighting';
 import { ObjectLayer } from './objects';
 import { buildTerrain } from './terrain';
 import { MUSIC_KEYS, SOUND_KEYS } from '../audio/audio';
+import { perf } from './perf';
 
 export interface SceneHost {
   isSimPaused(): boolean;
@@ -76,6 +77,14 @@ export class WorldScene extends Phaser.Scene {
     });
     this.scale.on('resize', () => this.applyZoom());
     this.applyZoom();
+    // temps CPU du rendu Phaser (soumission des commandes de dessin)
+    let r0 = 0;
+    this.game.events.on('prerender', () => (r0 = performance.now()));
+    this.game.events.on('postrender', () => {
+      perf.add('render', performance.now() - r0);
+      perf.add('frame', this.frameMs);
+      perf.commit();
+    });
     this.host.onSceneReady(this);
   }
 
@@ -161,10 +170,14 @@ export class WorldScene extends Phaser.Scene {
     this.ghostGfx?.clear();
   }
 
+  private frameMs = 0;
+
   update(_time: number, deltaMs: number): void {
     const g = this.game_;
     const dt = Math.min(deltaMs / 1000, MAX_FRAME_DELTA);
+    this.frameMs = deltaMs;
     if (!g || !this.player) return;
+    const t0 = performance.now();
     if (!this.host.isSimPaused()) {
       this.acc += dt;
       const input = this.host.pollInput();
@@ -175,7 +188,10 @@ export class WorldScene extends Phaser.Scene {
         steps++;
       }
       if (steps >= 10) this.acc = 0;
+      perf.steps += steps;
     } else this.acc = 0;
+    const t1 = performance.now();
+    perf.add('sim', t1 - t0);
 
     for (const e of g.events) this.handleEvent(e);
     g.events.length = 0;
@@ -194,7 +210,10 @@ export class WorldScene extends Phaser.Scene {
     this.drawGhost(g);
     this.lighting!.update(g, cam.worldView, this.flicker);
     this.drawDebug(g);
+    const t2 = performance.now();
+    perf.add('scene', t2 - t1);
     this.host.onFrame(dt, this.game.loop.actualFps);
+    perf.add('ui', performance.now() - t2);
   }
 
   private handleEvent(e: GameEvent): void {

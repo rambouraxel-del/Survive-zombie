@@ -6,6 +6,8 @@ import { loadIconAtlases } from './ui/icons';
 import { canPlace, place } from './sim/actions';
 import { spawnEnemy } from './sim/enemies';
 import { restoreSanctuary, startFinalAssault, takeFragment } from './sim/interact';
+import { perf } from './render/perf';
+import { deserialize } from './save/serialize';
 
 // Densité de rendu limitée pour préserver les performances sur écrans très denses.
 const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
@@ -54,7 +56,8 @@ async function boot(): Promise<void> {
   (window as unknown as { __app: App; __phaser: Phaser.Game }).__app = app;
   (window as unknown as { __app: App; __phaser: Phaser.Game }).__phaser = game;
   // accès pour les tests automatisés (scénarios de milieu et de fin de partie)
-  (window as unknown as { __sim: unknown }).__sim = { canPlace, place, spawnEnemy, takeFragment, restoreSanctuary, startFinalAssault };
+  (window as unknown as { __perf: unknown }).__perf = perf;
+  (window as unknown as { __sim: unknown }).__sim = { canPlace, place, spawnEnemy, takeFragment, restoreSanctuary, startFinalAssault, deserialize };
 }
 
 void boot();
