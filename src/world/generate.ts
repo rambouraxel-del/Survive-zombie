@@ -507,7 +507,7 @@ function placeScenes(b: Builder, r: Rng): Landmark[] {
       const x = r.int(8, w.w - 8 - sc.w);
       const y = r.int(54, w.h - 8 - sc.h);
       const c = { x: x + sc.w / 2, y: y + sc.h / 2 };
-      if (!sc.where(c, w) || placed.some((q) => dist(q, c) < 22)) continue;
+      if (!sc.where({ x: Math.floor(c.x), y: Math.floor(c.y) }, w) || placed.some((q) => dist(q, c) < 22)) continue;
       if (!b.free(x - 1, y - 1, sc.w + 2, sc.h + 2, false, 0)) continue;
       for (const [type, sprite, dx, dy, fw, fh, solid, extra] of sc.pieces) b.add(type, sprite, x + dx, y + dy, fw, fh, solid, extra ?? {});
       // terre battue et emprise réservée : la végétation ne recouvre pas la scène

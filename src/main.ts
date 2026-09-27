@@ -8,6 +8,7 @@ import { spawnEnemy } from './sim/enemies';
 import { restoreSanctuary, startFinalAssault, takeFragment } from './sim/interact';
 import { perf } from './render/perf';
 import { deserialize } from './save/serialize';
+import { ui } from './ui/panels';
 
 // Densité de rendu limitée pour préserver les performances sur écrans très denses ;
 // réduite à 1 en qualité « économie » ou si le jeu n'est pas fluide (qualité automatique).
@@ -62,6 +63,7 @@ async function boot(): Promise<void> {
   (window as unknown as { __app: App; __phaser: Phaser.Game }).__phaser = game;
   // accès pour les tests automatisés (scénarios de milieu et de fin de partie)
   (window as unknown as { __perf: unknown }).__perf = perf;
+  (window as unknown as { __ui: unknown }).__ui = ui;
   (window as unknown as { __sim: unknown }).__sim = { canPlace, place, spawnEnemy, takeFragment, restoreSanctuary, startFinalAssault, deserialize };
 }
 
