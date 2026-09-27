@@ -9,8 +9,10 @@ import { restoreSanctuary, startFinalAssault, takeFragment } from './sim/interac
 import { perf } from './render/perf';
 import { deserialize } from './save/serialize';
 
-// Densité de rendu limitée pour préserver les performances sur écrans très denses.
-const dpr = () => Math.min(window.devicePixelRatio || 1, 2);
+// Densité de rendu limitée pour préserver les performances sur écrans très denses ;
+// réduite à 1 en qualité « économie » ou si le jeu n'est pas fluide (qualité automatique).
+let appRef: App | null = null;
+const dpr = () => (appRef?.renderLow ? 1 : Math.min(window.devicePixelRatio || 1, 2));
 
 async function boot(): Promise<void> {
   // Test des encoches : ?safe=haut,bas,gauche,droite (px CSS) simule les zones de sécurité d'un iPhone
@@ -28,6 +30,7 @@ async function boot(): Promise<void> {
   document.addEventListener('dblclick', (e) => e.preventDefault());
   await loadIconAtlases();
   const app = new App();
+  appRef = app;
   const parent = document.getElementById('game')!;
   const size = () => ({ w: Math.floor(window.innerWidth * dpr()), h: Math.floor(window.innerHeight * dpr()) });
   const s = size();
@@ -52,6 +55,8 @@ async function boot(): Promise<void> {
     game.scale.setZoom(1 / dpr());
   };
   window.addEventListener('resize', resize);
+  app.onResolutionChange = resize;
+  if (app.renderLow) resize();
   window.addEventListener('orientationchange', () => setTimeout(resize, 250));
   (window as unknown as { __app: App; __phaser: Phaser.Game }).__app = app;
   (window as unknown as { __app: App; __phaser: Phaser.Game }).__phaser = game;

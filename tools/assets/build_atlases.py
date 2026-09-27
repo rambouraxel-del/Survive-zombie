@@ -62,6 +62,13 @@ WORLD = [
     ('workbench', 'Objects/Furniture/Workbench, Carpentry.png', 0, 0, 4, 2),
     ('chest_closed', 'Objects/Furniture/Chest.png', 0, 0, 1, 1),
     ('chest_open', 'Objects/Furniture/Chest.png', 0, 2, 1, 1),
+    # Améliorations du camp (mise à jour) : grand coffre cerclé, établi de forgeron, chaudron sur le feu
+    ('chest_big_closed', 'Objects/Furniture/Chest.png', 1, 0, 1, 1),
+    ('chest_big_open', 'Objects/Furniture/Chest.png', 1, 2, 1, 1),
+    ('workbench_smith', 'Objects/Furniture/Smithing/Workbench, Smith.png', 2, 0, 2, 2),
+    ('cauldron_fire_0', 'Objects/Furniture/Cauldron.png', 0, 2, 1, 1),
+    ('cauldron_fire_1', 'Objects/Furniture/Cauldron.png', 0, 3, 1, 1),
+    ('cauldron_fire_2', 'Objects/Furniture/Cauldron.png', 0, 4, 1, 1),
     ('bed_straw', 'Objects/Small Items/Hay & Straw.png', 2, 0, 2, 3),
     ('fence_h', 'Structure/Fences/Plain Fence A.png', 1, 0, 1, 1),
     ('fence_v', 'Structure/Fences/Plain Fence A.png', 0, 1, 1, 1),

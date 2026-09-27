@@ -3,7 +3,7 @@
 // des dégradés doux : aucune perte visible), redessinée à chaque image puis agrandie avec
 // un filtrage lissé. Diviser la taille par 4 divise par 16 le dessin et l'envoi au GPU.
 import Phaser from 'phaser';
-import { BUILDING_BY_ID } from '../data/buildings';
+import { buildingStats } from '../data/buildings';
 import type { Game } from '../sim/game';
 
 const KEY = 'night-mask';
@@ -64,10 +64,10 @@ export class Lighting {
     // halo minimal autour du joueur + torche éventuelle
     light(p.x, p.y - 16, 64 + g.lightRadius() * (0.95 + flicker * 0.05));
     for (const b of g.world.buildings.values()) {
-      const d = BUILDING_BY_ID[b.type];
-      if (!d.light) continue;
+      const l = buildingStats(b.type, b.level).light;
+      if (!l) continue;
       const c = g.world.buildingCenter(b);
-      light(c.x, c.y, d.light * (b.type === 'campfire' ? 0.94 + flicker * 0.06 : 1));
+      light(c.x, c.y, l * (b.type === 'campfire' ? 0.94 + flicker * 0.06 : 1));
     }
     if (g.sanctuaryRestored) {
       const o = g.world.objects[g.world.sanctuaryId];

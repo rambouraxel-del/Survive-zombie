@@ -1,7 +1,7 @@
 // Constructions du joueur et sacs au sol.
 import Phaser from 'phaser';
 import { TILE } from '../config/balance';
-import { BUILDING_BY_ID } from '../data/buildings';
+import { BUILDING_BY_ID, buildingStats } from '../data/buildings';
 import type { Game } from '../sim/game';
 import type { Building } from '../world/world';
 
@@ -60,12 +60,20 @@ export class BuildingLayer {
         return Math.hypot(c.x - p.x, c.y - p.y) < 1.3 * TILE ? 'door_open' : 'door_closed';
       }
       case 'campfire':
+        if ((b.level ?? 1) >= 2 && this.has('cauldron_fire_0')) return `cauldron_fire_${this.fireFrame % 3}`;
         return `campfire_${this.fireFrame}`;
       case 'trap':
         return (b.meat ?? 0) > 0 ? 'trap_full' : 'trap';
-      default:
-        return BUILDING_BY_ID[b.type].sprite;
+      default: {
+        // construction améliorée : sprite du pack LPC correspondant (repli sur l'original)
+        const f = buildingStats(b.type, b.level).sprite;
+        return this.has(f) ? f : BUILDING_BY_ID[b.type].sprite;
+      }
     }
+  }
+
+  private has(frame: string): boolean {
+    return this.scene.textures.get('world').has(frame);
   }
 
   private place(img: Phaser.GameObjects.Image, b: Building, frame: string): void {

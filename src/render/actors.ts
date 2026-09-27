@@ -15,6 +15,24 @@ const PLAYER_ANIMS: [string, number, number][] = [
   ['shoot', 12, 13],
 ];
 const SHEET_COLS: Record<string, number> = { player: 13, rodeur: 9, affame: 9, brute: 9 };
+/** images du corps (ligne « slash ») pour le geste d'outil, d'après le générateur LPC
+ * (animations « tool_axe » et « tool_hammer ») */
+export const CHOP_FRAMES = [5, 5, 4, 4, 3, 1, 0, 0, 0, 0];
+const CHOP_FRAMES_HAMMER = [5, 5, 4, 4, 1, 0, 0, 0, 0, 0];
+
+/** Objet du jeu -> calque d'équipement (public/assets/chars/equip.json) */
+export const EQUIP_LOOK: Record<string, string> = {
+  stone_axe: 'axe', iron_axe: 'axe', stone_hammer: 'hammer', iron_pick: 'pick',
+  spear: 'spear', club: 'club', sword: 'sword', bow: 'bow', gambison: 'leather', brigandine: 'plate',
+};
+const ANIM_OF_ROW = (row: number): [string, number] | null => {
+  if (row < 4) return ['walk', row];
+  if (row < 8) return ['slash', row - 4];
+  if (row < 12) return ['thrust', row - 8];
+  if (row < 16) return ['shoot', row - 12];
+  if (row === 16) return ['hurt', 0];
+  return null;
+};
 
 export function createAnimations(scene: Phaser.Scene): void {
   const a = scene.anims;
@@ -35,6 +53,13 @@ export function createAnimations(scene: Phaser.Scene): void {
       } else add(`player_${name}_${d}`, 'player', Array.from({ length: n }, (_, i) => start + i), name === 'shoot' ? 26 : 18, 0);
     }
   }
+  // geste de bûcheron / carrier : même enchaînement d'images du corps que l'animation
+  // « tool_axe » du générateur LPC (lever l'outil puis frapper)
+  for (const d of dirs) {
+    const start = (4 + DIR_ROW[d]) * SHEET_COLS.player;
+    add(`player_chop_${d}`, 'player', CHOP_FRAMES.map((f) => start + f), 25, 0);
+    add(`player_chophammer_${d}`, 'player', CHOP_FRAMES_HAMMER.map((f) => start + f), 25, 0);
+  }
   add('player_die', 'player', Array.from({ length: 6 }, (_, i) => 16 * SHEET_COLS.player + i), 8, 0);
   // zombies
   for (const t of ['rodeur', 'affame', 'brute'] as const) {
@@ -54,10 +79,16 @@ export class PlayerView {
   sprite: Phaser.GameObjects.Sprite;
   private scene: Phaser.Scene;
   private lastAnim = '';
+  /** calques d'équipement : derrière le corps, protection, devant, flèche */
+  private layers: Record<'bg' | 'body' | 'fg' | 'arrow', Phaser.GameObjects.Image>;
+  private hasEquip: boolean;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.sprite = scene.add.sprite(0, 0, 'player', 0).setOrigin(0.5, FOOT);
+    this.hasEquip = scene.textures.exists('equip');
+    const mk = () => scene.add.image(0, 0, this.hasEquip ? 'equip' : 'player').setVisible(false);
+    this.layers = { bg: mk(), body: mk(), fg: mk(), arrow: mk() };
   }
 
   update(g: Game): void {
@@ -66,7 +97,9 @@ export class PlayerView {
     s.setPosition(Math.round(p.x), Math.round(p.y));
     s.setDepth(p.y);
     let anim: string;
+    const held = this.heldItem(g);
     if (p.dead) anim = 'player_die';
+    else if (p.actionT > 0 && p.action === 'chop') anim = `player_${EQUIP_LOOK[held ?? ''] === 'hammer' ? 'chophammer' : 'chop'}_${p.facing}`;
     else if (p.actionT > 0 && p.action !== 'none') anim = `player_${p.action}_${p.facing}`;
     else if (p.moving || p.dodgeT > 0) anim = `player_walk_${p.facing}`;
     else anim = `player_idle_${p.facing}`;
@@ -77,8 +110,57 @@ export class PlayerView {
     if (anim.startsWith('player_walk')) s.anims.timeScale = p.sprinting ? 1.5 : 1;
     // clignotement pendant l'invulnérabilité
     const blink = p.invuln > 0 && !p.dead && Math.floor(p.invuln * 12) % 2 === 0;
-    s.setAlpha(p.dodgeT > 0 ? 0.6 : blink ? 0.45 : 1);
-    void this.scene;
+    const alpha = p.dodgeT > 0 ? 0.6 : blink ? 0.45 : 1;
+    s.setAlpha(alpha);
+    this.syncEquipment(g, held, alpha);
+  }
+
+  /** Objet réellement en main : celui de l'action en cours, sinon l'arme, sinon l'outil. */
+  private heldItem(g: Game): string | null {
+    const p = g.player;
+    if (p.actionT > 0 && p.action !== 'none') return p.actionItem;
+    const w = p.equip.weapon;
+    if (w) return w.id;
+    const t = p.equip.tool;
+    if (t && EQUIP_LOOK[t.id]) return t.id;
+    return null;
+  }
+
+  private syncEquipment(g: Game, held: string | null, alpha: number): void {
+    const L = this.layers;
+    if (!this.hasEquip) return;
+    const p = g.player;
+    const tf = this.sprite.anims.currentFrame?.textureFrame ?? this.sprite.frame.name;
+    const n = Number(tf);
+    const row = Math.floor(n / SHEET_COLS.player);
+    const col = n % SHEET_COLS.player;
+    const ad = ANIM_OF_ROW(row);
+    const tex = this.scene.textures.get('equip');
+    const put = (img: Phaser.GameObjects.Image, key: string | null, depth: number) => {
+      if (!key || !tex.has(key)) {
+        img.setVisible(false);
+        return;
+      }
+      if (img.frame.name !== key) {
+        img.setFrame(key);
+        // cellule d'origine (64, 128 ou 192 px) centrée sur la cellule 64 px du corps
+        const cell = img.frame.realHeight;
+        img.setOrigin(0.5, (FOOT * 64 + (cell - 64) / 2) / cell);
+      }
+      img.setVisible(true).setPosition(this.sprite.x, this.sprite.y).setDepth(depth).setAlpha(alpha);
+    };
+    if (!ad) {
+      for (const img of Object.values(L)) img.setVisible(false);
+      return;
+    }
+    const [anim, d] = ad;
+    const look = !p.dead && held ? EQUIP_LOOK[held] : undefined;
+    const armor = p.equip.armor && p.equip.armor.dur !== 0 ? EQUIP_LOOK[p.equip.armor.id] : undefined;
+    const k = `${anim}|${d}|${col}`;
+    put(L.bg, look ? `${look}|bg|${k}` : null, p.y - 0.02);
+    put(L.body, armor ? `${armor}|body|${k}` : null, p.y + 0.01);
+    put(L.fg, look ? `${look}|fg|${k}` : null, p.y + 0.02);
+    put(L.arrow, look === 'bow' && anim === 'shoot' ? `arrow|fg|${k}` : null, p.y + 0.03);
   }
 }
 
@@ -86,14 +168,25 @@ interface EView {
   sprite: Phaser.GameObjects.Sprite;
   alert: Phaser.GameObjects.Image;
   anim: string;
+  spotUntil: number;
 }
 
 export class EnemyViews {
   private scene: Phaser.Scene;
   private views = new Map<number, EView>();
+  private spotted = new Map<number, number>();
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
+  }
+
+  /** Le zombie vient de vous repérer : « ! » bref au-dessus de lui. */
+  spot(id: number): void {
+    const until = this.scene.time.now + 900;
+    this.spotted.set(id, until);
+    const v = this.views.get(id);
+    if (v) v.spotUntil = until;
+    if (this.spotted.size > 60) this.spotted.clear();
   }
 
   update(g: Game, view: Phaser.Geom.Rectangle): void {
@@ -106,7 +199,7 @@ export class EnemyViews {
       if (!v) {
         const sprite = this.scene.add.sprite(e.x, e.y, e.type, 0).setOrigin(0.5, FOOT);
         const alert = this.scene.add.image(e.x, e.y - 60, 'items', 'fx_alert').setOrigin(0.5, 1).setVisible(false);
-        v = { sprite, alert, anim: '' };
+        v = { sprite, alert, anim: '', spotUntil: this.spotted.get(e.id) ?? 0 };
         this.views.set(e.id, v);
       }
       this.sync(e, v);
@@ -148,8 +241,11 @@ export class EnemyViews {
     } else {
       s.clearTint();
       s.setAlpha(1);
-      v.alert.setVisible(false);
+      const spot = v.spotUntil > this.scene.time.now;
+      v.alert.setVisible(spot);
+      if (spot) v.alert.setPosition(s.x, s.y - (e.type === 'brute' ? 62 : 56)).setDepth(e.y + 1).setScale(0.8);
     }
+    if (e.windup > 0) v.alert.setScale(1);
   }
 
   get count(): number {

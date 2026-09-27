@@ -5,6 +5,7 @@ import { BUILDING_BY_ID } from '../data/buildings';
 import type { Game } from '../sim/game';
 import type { GameEvent, InputState } from '../sim/types';
 import { canPlace } from '../sim/actions';
+import { currentObjective } from '../sim/objectives';
 import { createAnimations, EnemyViews, PlayerView } from './actors';
 import { BuildingLayer } from './buildings';
 import { Lighting } from './lighting';
@@ -22,6 +23,7 @@ export interface SceneHost {
   onSceneReady(scene: WorldScene): void;
   onPlacementPointer(tx: number, ty: number): void;
   onManagePointer(tx: number, ty: number): void;
+  onWorldTap(wx: number, wy: number): void;
   reduceShake(): boolean;
   debug(): boolean;
 }
@@ -40,6 +42,13 @@ export class WorldScene extends Phaser.Scene {
   private debugGfx!: Phaser.GameObjects.Graphics;
   private arrows: Phaser.GameObjects.Image[] = [];
   private floats: Phaser.GameObjects.Text[] = [];
+  private floatPool: Phaser.GameObjects.Text[] = [];
+  private targetLabel!: Phaser.GameObjects.Text;
+  private hintGfx!: Phaser.GameObjects.Graphics;
+  private hintLabels: Phaser.GameObjects.Text[] = [];
+  private hintCache: { t: number; list: { x: number; y: number; w: number; h: number; label: string }[] } = { t: 0, list: [] };
+  private threats: { x: number; y: number; t: number; kind: 'sound' | 'seen' }[] = [];
+  private threatIcons: Phaser.GameObjects.Image[] = [];
   ghost: Phaser.GameObjects.Image | null = null;
   private ghostGfx!: Phaser.GameObjects.Graphics;
   placing: { type: string; tx: number; ty: number } | null = null;
@@ -62,12 +71,16 @@ export class WorldScene extends Phaser.Scene {
     this.load.image('terrain_summer', 'assets/tiles/terrain_summer.png');
     this.load.image('terrain_autumn', 'assets/tiles/terrain_autumn.png');
     for (const c of ['player', 'rodeur', 'affame', 'brute']) this.load.spritesheet(c, `assets/chars/${c}.png`, { frameWidth: 64, frameHeight: 64 });
+    // armes, outils et protections visibles (calques LPC alignés sur le personnage)
+    this.load.atlas('equip', 'assets/chars/equip.png', 'assets/chars/equip.json');
     for (const k of [...SOUND_KEYS, ...MUSIC_KEYS]) this.load.audio(k, `assets/audio/${k}.mp3`);
   }
 
   create(): void {
     createAnimations(this);
-    this.highlight = this.add.graphics().setDepth(8e5);
+    this.highlight = this.add.graphics().setDepth(9.2e5);
+    this.hintGfx = this.add.graphics().setDepth(8e5);
+    this.targetLabel = this.add.text(0, 0, '', { fontFamily: 'system-ui, sans-serif', fontSize: '10px', color: '#fff4d0', stroke: '#1b1712', strokeThickness: 3, fontStyle: 'bold', resolution: 3 }).setOrigin(0.5, 1).setDepth(9.3e5).setVisible(false);
     this.debugGfx = this.add.graphics().setDepth(8.5e5);
     this.ghostGfx = this.add.graphics().setDepth(2.1e5);
     this.cameras.main.setBackgroundColor('#1b1712');
@@ -101,6 +114,9 @@ export class WorldScene extends Phaser.Scene {
       this.host.onPlacementPointer(tx, ty);
     } else if (this.managing && down) {
       this.host.onManagePointer(Math.floor(wp.x / TILE), Math.floor(wp.y / TILE));
+    } else if (down) {
+      // toucher un objet proche : il devient la cible (sans déplacer le personnage)
+      this.host.onWorldTap(wp.x, wp.y);
     }
   }
 
@@ -154,9 +170,15 @@ export class WorldScene extends Phaser.Scene {
     this.game_ = null;
     this.tweens.killAll();
     for (const o of [...this.children.list]) {
-      if (o === this.highlight || o === this.debugGfx || o === this.ghostGfx) continue;
+      if (o === this.highlight || o === this.debugGfx || o === this.ghostGfx || o === this.targetLabel || o === this.hintGfx) continue;
       o.destroy();
     }
+    this.floatPool = [];
+    this.hintLabels = [];
+    this.threatIcons = [];
+    this.threats = [];
+    this.targetLabel?.setVisible(false);
+    this.hintGfx?.clear();
     this.terrain = null;
     this.objects = null;
     this.buildingsLayer = null;
@@ -207,6 +229,8 @@ export class WorldScene extends Phaser.Scene {
     this.enemies!.update(g, cam.worldView);
     this.syncArrows(g);
     this.drawHighlight(g);
+    this.drawIntroHints(g);
+    this.drawThreats(g);
     this.drawGhost(g);
     this.lighting!.update(g, cam.worldView, this.flicker);
     this.drawDebug(g);
@@ -243,6 +267,14 @@ export class WorldScene extends Phaser.Scene {
         break;
       }
       case 'hitfx':
+      case 'harvestHit':
+        break;
+      case 'spotted':
+        this.enemies?.spot(e.enemyId);
+        break;
+      case 'threat':
+        this.threats.push({ x: e.x, y: e.y, t: this.time.now, kind: e.kind });
+        if (this.threats.length > 12) this.threats.shift();
         break;
       default:
         this.host.onGameEvent(e);
@@ -250,9 +282,18 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private spawnFloat(x: number, y: number, text: string, color: string): void {
-    const t = this.add.text(x, y, text, { fontFamily: 'system-ui, sans-serif', fontSize: '11px', color, stroke: '#000', strokeThickness: 3, fontStyle: 'bold', resolution: 2 }).setOrigin(0.5, 1).setDepth(9.5e5);
-    this.floats.push(t);
-    this.tweens.add({ targets: t, y: y - 22, alpha: 0, duration: 1100, ease: 'Quad.easeOut', onComplete: () => { t.destroy(); this.floats = this.floats.filter((f) => f !== t); } });
+    // textes flottants réutilisés (créer un texte Phaser est coûteux)
+    let t = this.floatPool.pop();
+    if (t) t.setText(text).setColor(color).setPosition(x, y).setAlpha(1).setVisible(true);
+    else t = this.add.text(x, y, text, { fontFamily: 'system-ui, sans-serif', fontSize: '11px', color, stroke: '#000', strokeThickness: 3, fontStyle: 'bold', resolution: 2 }).setOrigin(0.5, 1).setDepth(9.5e5);
+    const tt = t;
+    this.floats.push(tt);
+    this.tweens.add({ targets: tt, y: y - 22, alpha: 0, duration: 1100, ease: 'Quad.easeOut', onComplete: () => {
+      tt.setVisible(false);
+      this.floats = this.floats.filter((f) => f !== tt);
+      if (this.floatPool.length < 24) this.floatPool.push(tt);
+      else tt.destroy();
+    } });
   }
 
   private syncArrows(g: Game): void {
@@ -272,14 +313,18 @@ export class WorldScene extends Phaser.Scene {
     const gr = this.highlight;
     gr.clear();
     const t = g.target;
-    if (!t || this.placing || this.managing || g.player.dead) return;
+    if (!t || this.placing || this.managing || g.player.dead) {
+      this.targetLabel.setVisible(false);
+      return;
+    }
     const pulse = 0.6 + 0.4 * Math.sin(this.time.now / 160);
     const w = Math.max(24, t.w);
     const hgt = Math.max(24, t.h);
     const x0 = t.x - w / 2;
     const y0 = t.y - hgt / 2;
     const L = 7;
-    gr.lineStyle(2, 0xf3d27a, pulse);
+    const col = t.empty ? 0xb9ad96 : 0xf3d27a;
+    gr.lineStyle(2, col, t.empty ? 0.6 : pulse);
     for (const [cx, cy, sx, sy] of [[x0, y0, 1, 1], [x0 + w, y0, -1, 1], [x0, y0 + hgt, 1, -1], [x0 + w, y0 + hgt, -1, -1]]) {
       gr.beginPath();
       gr.moveTo(cx + sx * L, cy);
@@ -287,6 +332,102 @@ export class WorldScene extends Phaser.Scene {
       gr.lineTo(cx, cy + sy * L);
       gr.strokePath();
     }
+    // nom de la cible, près d'elle (le bouton n'affiche qu'un verbe court)
+    let top = y0 - 3;
+    if (t.kind === 'harvest' && t.objId !== undefined) {
+      const o = g.world.objects[t.objId];
+      const max = o.maxHp ?? 1;
+      if (max > 1) {
+        // progression de la récolte : coups restants
+        const r = Math.max(0, (o.hp ?? max) / max);
+        const bw = Math.min(40, Math.max(24, w - 8));
+        gr.fillStyle(0x000000, 0.6).fillRect(t.x - bw / 2, top - 5, bw, 5);
+        gr.fillStyle(0xd9f7a6, 1).fillRect(t.x - bw / 2 + 1, top - 4, (bw - 2) * r, 3);
+        top -= 7;
+      }
+    }
+    if (this.targetLabel.text !== t.name) this.targetLabel.setText(t.name);
+    this.targetLabel.setVisible(true).setPosition(Math.round(t.x), Math.round(top));
+  }
+
+  /** Première récolte : les ressources utiles les plus proches sont signalées discrètement. */
+  private drawIntroHints(g: Game): void {
+    const gr = this.hintGfx;
+    gr.clear();
+    const obj = currentObjective(g);
+    const active = obj?.id === 'o_gather' && !this.placing && !this.managing && !g.player.dead;
+    if (active && this.time.now - this.hintCache.t > 500) {
+      this.hintCache.t = this.time.now;
+      const need: [string, string, string[]][] = [];
+      const c = (id: string) => g.stats.collected[id] ?? 0;
+      if (c('wood') < 3) need.push(['tree', 'Bois', ['tree']]);
+      if (c('stone') < 3) need.push(['rock', 'Pierre', ['rock']]);
+      if (c('fiber') < 2) need.push(['grass', 'Fibres', ['grass']]);
+      const p = g.player;
+      const list: typeof this.hintCache.list = [];
+      for (const [, label, types] of need) {
+        let best: { x: number; y: number; w: number; h: number; d: number } | null = null;
+        for (const o of g.world.objects) {
+          if (!types.includes(o.type) || o.depleted || o.removed) continue;
+          const x = (o.fx + o.fw / 2) * TILE;
+          const y = (o.fy + o.fh / 2) * TILE - (o.type === 'tree' ? 10 : 0);
+          const d = Math.hypot(x - p.x, y - p.y);
+          if (d < 12 * TILE && (!best || d < best.d)) best = { x, y, w: o.fw * TILE, h: o.fh * TILE, d };
+        }
+        if (best) list.push({ x: best.x, y: best.y, w: best.w, h: best.h, label });
+      }
+      this.hintCache.list = list;
+    }
+    const list = active ? this.hintCache.list : [];
+    const a = 0.35 + 0.25 * Math.sin(this.time.now / 300);
+    list.forEach((hnt, i) => {
+      const tgt = g.target;
+      const isTarget = tgt && Math.abs(tgt.x - hnt.x) < 2 && Math.abs(tgt.y - hnt.y) < 12;
+      if (!isTarget) gr.lineStyle(2, 0xd9f7a6, a).strokeEllipse(hnt.x, hnt.y + hnt.h / 2 - 4, Math.max(26, hnt.w), 12);
+      let lbl = this.hintLabels[i];
+      if (!lbl) {
+        lbl = this.add.text(0, 0, '', { fontFamily: 'system-ui, sans-serif', fontSize: '9px', color: '#d9f7a6', stroke: '#1b1712', strokeThickness: 3, fontStyle: 'bold', resolution: 3 }).setOrigin(0.5, 0).setDepth(8.1e5);
+        this.hintLabels[i] = lbl;
+      }
+      if (lbl.text !== hnt.label) lbl.setText(hnt.label);
+      lbl.setVisible(!isTarget).setPosition(Math.round(hnt.x), Math.round(hnt.y + hnt.h / 2 + 2));
+    });
+    for (let i = list.length; i < this.hintLabels.length; i++) this.hintLabels[i].setVisible(false);
+  }
+
+  /**
+   * Danger proche entendu ou qui vous a repéré : repère discret au bord de la vue, dans sa
+   * direction, seulement s'il est hors de vue ou dans l'obscurité (pas un radar).
+   */
+  private drawThreats(g: Game): void {
+    const now = this.time.now;
+    this.threats = this.threats.filter((t) => now - t.t < 1800);
+    const view = this.cameras.main.worldView;
+    const p = g.player;
+    const dark = g.darkness() > 0.5;
+    let n = 0;
+    for (const t of this.threats) {
+      const inView = t.x > view.x + 8 && t.x < view.right - 8 && t.y > view.y + 8 && t.y < view.bottom - 8;
+      const far = Math.hypot(t.x - p.x, t.y - p.y) > 6 * TILE;
+      if (inView && !(dark && far)) continue;
+      const ang = Math.atan2(t.y - p.y, t.x - p.x);
+      // point au bord de la vue, dans la direction du danger
+      const hw = view.width / 2 - 18;
+      const hh = view.height / 2 - 22;
+      const k = Math.min(hw / Math.abs(Math.cos(ang) || 1e-6), hh / Math.abs(Math.sin(ang) || 1e-6));
+      const cx = view.centerX + Math.cos(ang) * k;
+      const cy = view.centerY + Math.sin(ang) * k;
+      let img = this.threatIcons[n];
+      if (!img) {
+        img = this.add.image(0, 0, 'items', 'fx_alert').setDepth(9.4e5);
+        this.threatIcons[n] = img;
+      }
+      const life = 1 - (now - t.t) / 1800;
+      img.setVisible(true).setPosition(cx, cy + 8).setAlpha(Math.min(1, life * 1.6) * (t.kind === 'seen' ? 0.95 : 0.7)).setScale(t.kind === 'seen' ? 0.9 : 0.7);
+      n++;
+      if (n >= 4) break;
+    }
+    for (let i = n; i < this.threatIcons.length; i++) this.threatIcons[i].setVisible(false);
   }
 
   private drawGhost(g: Game): void {

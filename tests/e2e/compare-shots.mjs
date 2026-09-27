@@ -52,6 +52,13 @@ for (const f of FORMATS) {
   await page.evaluate(() => window.__app.openPanel('craft'));
   await page.waitForTimeout(300);
   await shot('4-fabrication');
+  // fiche de recette (toucher une ligne) — sans effet sur l'ancienne version
+  const row = page.locator('#panel-layer .recipe').nth(2);
+  if (await row.count()) {
+    await (f.touch ? row.tap({ position: { x: 30, y: 20 } }) : row.click({ position: { x: 30, y: 20 } }));
+    await page.waitForTimeout(300);
+    await shot('4b-fiche');
+  }
   await page.evaluate(() => window.__app.openPanel('map'));
   await page.waitForTimeout(300);
   await shot('5-carte');

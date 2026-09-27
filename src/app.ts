@@ -2,21 +2,29 @@
 import { TILE } from './config/balance';
 import { AudioManager } from './audio/audio';
 import { BUILDING_BY_ID } from './data/buildings';
-import { Controls } from './input/controls';
+import { Controls, type InputKind } from './input/controls';
 import type { WorldScene, SceneHost } from './render/WorldScene';
 import { deserialize, serialize, validateSave } from './save/serialize';
 import { clearSaves, hasSave, loadSave, writeSave } from './save/storage';
 import { loadSettings, saveSettings, type Settings } from './settings';
-import { canPlace, place, useSlot } from './sim/actions';
+import { canPlace, place, useHotbar } from './sim/actions';
 import { Game } from './sim/game';
+import { selectTargetAt } from './sim/interact';
+import { skipIntro } from './sim/objectives';
+import { item } from './data/items';
 import type { GameEvent, InputState } from './sim/types';
 import { $, clear, h } from './ui/dom';
 import { Hud } from './ui/hud';
 import { icon } from './ui/icons';
 import * as P from './ui/panels';
+import { perf } from './render/perf';
 import type { Station } from './data/items';
 
 type Overlay = null | 'title' | 'gate' | 'death' | 'victory' | 'loading';
+
+/** Identifiant de version injecté au build (commit + date), pour diagnostiquer les caches. */
+declare const __APP_VERSION__: string;
+export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev';
 
 export class App implements P.PanelHost, SceneHost {
   settings: Settings = loadSettings();
@@ -36,13 +44,22 @@ export class App implements P.PanelHost, SceneHost {
   private layoutT = 0;
   private movedFor = 0;
   private joyHintDone = false;
+  readonly version = APP_VERSION;
+  /** résolution réduite automatiquement (qualité « automatique ») */
+  lowRes = false;
+  private slowFor = 0;
+  onResolutionChange: (() => void) | null = null;
+  private collect: { el: HTMLElement; items: Map<string, number>; t: number } | null = null;
 
   constructor() {
     this.controls = new Controls(document.body, {
       onQuickSlot: (i) => this.quickSlot(i),
       onShortcut: (n) => this.shortcut(n),
       isBlocked: () => this.isSimPaused(),
+      onInputKind: (k) => this.onInputKind(k),
     });
+    this.applySettings(false);
+    this.onInputKind(matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse');
     this.bindStaticUi();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') this.onHidden();
@@ -102,6 +119,12 @@ export class App implements P.PanelHost, SceneHost {
       case 'objective':
         this.hud?.forceRefresh();
         break;
+      case 'collect':
+        this.collectToast(e.id, e.n);
+        break;
+      case 'hint':
+        this.hint(e.id, e.text);
+        break;
       case 'save':
         void this.saveNow(e.reason);
         break;
@@ -133,9 +156,10 @@ export class App implements P.PanelHost, SceneHost {
     this.fpsAvg = this.fpsAvg * 0.95 + fps * 0.05;
     this.hud?.update(g, dt);
     this.updateJoyHint(dt);
+    this.watchPerformance(dt, fps);
     this.layoutT -= dt;
     if (this.layoutT <= 0) {
-      this.layoutT = 0.4;
+      this.layoutT = 1;
       this.measureInsets();
     }
     // musique selon le moment
@@ -161,8 +185,10 @@ export class App implements P.PanelHost, SceneHost {
       const st = this.scene?.stats;
       const tx = Math.floor(g.player.x / TILE);
       const ty = Math.floor(g.player.y / TILE);
+      const pf = perf.summary();
       dbg.textContent = [
-        `FPS ${this.fpsAvg.toFixed(0)}`,
+        `FPS ${this.fpsAvg.toFixed(0)}${this.lowRes ? ' (résolution réduite)' : ''}`,
+        `ms/image : simulation ${pf.sim.avg} · scène ${pf.scene.avg} · rendu ${pf.render.avg} · interface ${pf.ui.avg}`,
         `Ennemis actifs ${g.enemies.length} (dessinés ${st?.enemiesDrawn ?? 0})`,
         `Objets affichés ${st?.objects ?? 0}`,
         `Graine ${g.world.seed}`,
@@ -185,23 +211,32 @@ export class App implements P.PanelHost, SceneHost {
     if (b) this.openPanel('manage', String(b.id));
   }
 
+  /** Toucher un objet proche le choisit comme cible, sans déplacer le personnage. */
+  onWorldTap(wx: number, wy: number): void {
+    const g = this.g;
+    if (!g || this.isSimPaused()) return;
+    if (selectTargetAt(g, wx, wy)) this.sfx('click');
+  }
+
   // ------------------------------------------------------------ interface statique
   private bindStaticUi(): void {
     $('#m-inv').addEventListener('click', () => this.shortcut('inventory'));
     $('#m-menu').addEventListener('click', () => this.shortcut('hub'));
     $('#objective').addEventListener('click', () => this.shortcut('objective'));
-    try {
-      if (localStorage.getItem('bdc-joy-hint') === 'vu') {
-        $('#joy-hint').classList.add('hidden');
-        this.joyHintDone = true;
+    $('#pin').addEventListener('click', () => {
+      if (!this.g || this.overlay || this.scene?.placing || this.scene?.managing) return;
+      if (this.g.pinned) {
+        P.ui.craft.sheet = this.g.pinned;
+        this.openPanel('craft', 'keep');
       }
-    } catch {
-      /* stockage indisponible */
+    });
+    if (this.settings.learned.includes('joystick')) {
+      $('#joy-hint').classList.add('hidden');
+      this.joyHintDone = true;
     }
     $('#place-cancel').addEventListener('click', () => this.stopPlacement());
     $('#place-ok').addEventListener('click', () => this.confirmPlacement());
     ($('#place-rot') as HTMLButtonElement).disabled = true;
-    if (!matchMedia('(pointer: coarse)').matches) document.body.classList.add('no-touch');
   }
 
   private shortcut(n: 'inventory' | 'craft' | 'build' | 'map' | 'pause' | 'hub' | 'objective'): void {
@@ -221,12 +256,15 @@ export class App implements P.PanelHost, SceneHost {
   private quickSlot(i: number): void {
     const g = this.g;
     if (!g || this.isSimPaused()) return;
-    if (!g.player.inv[i]) {
+    const r = useHotbar(g, i);
+    if (r.empty) {
+      // raccourci vide : on propose directement d'y placer un objet du sac
+      P.ui.inv.pickFor = i;
+      P.ui.inv.sel = null;
+      P.ui.inv.hbSel = null;
       this.openPanel('inventory');
       return;
     }
-    const r = useSlot(g, i);
-    if (!r.ok && r.reason && r.reason !== 'Pas faim') g.toast(r.reason, 'info');
     this.hud?.forceRefresh();
   }
 
@@ -240,22 +278,24 @@ export class App implements P.PanelHost, SceneHost {
     let el: HTMLElement;
     switch (name) {
       case 'inventory':
-        el = P.inventoryPanel(this);
+      case 'build':
+      case 'map':
+        if (name !== this.modal) this.resetTabState(name);
+        el = P.managePanelTabs(this, name);
         break;
       case 'craft':
-        el = P.craftPanel(this, (ref as Station | 'all') ?? 'all');
-        break;
-      case 'build':
-        el = P.buildPanel(this);
+        // depuis une station : filtre sur cette station ; « keep » : fiche déjà choisie
+        if (ref && ref !== 'keep') {
+          P.ui.craft.filter = ref as Station | 'all';
+          P.ui.craft.sheet = null;
+        } else if (!ref && name !== this.modal) P.ui.craft.sheet = null;
+        el = P.managePanelTabs(this, 'craft');
         break;
       case 'manage':
         el = P.managePanel(this, Number(ref));
         break;
       case 'container':
         el = P.containerPanel(this);
-        break;
-      case 'map':
-        el = P.mapPanel(this);
         break;
       case 'pause':
         el = P.pausePanel(this);
@@ -288,9 +328,13 @@ export class App implements P.PanelHost, SceneHost {
         return;
     }
     this.controls.reset();
+    // défilement conservé quand on réaffiche le même panneau
+    const prevScroll = name === this.modal ? (layer.querySelector('.pbody') as HTMLElement | null)?.scrollTop ?? 0 : 0;
     this.modal = name;
     clear(layer);
     layer.append(el);
+    const nb = layer.querySelector('.pbody') as HTMLElement | null;
+    if (nb && prevScroll) nb.scrollTop = prevScroll;
     layer.classList.remove('hidden');
     layer.classList.toggle('anchored', name === 'hub');
     layer.onclick = (e) => {
@@ -298,7 +342,22 @@ export class App implements P.PanelHost, SceneHost {
     };
   }
 
+  private resetTabState(name: string): void {
+    if (name === 'inventory') {
+      const keepPick = P.ui.inv.pickFor;
+      P.ui.inv = { sel: null, moving: null, hbSel: null, pickFor: keepPick, hbMove: null };
+    }
+    if (name === 'map') {
+      P.ui.map.init = false;
+      P.ui.map.w = 0;
+      P.ui.map.marking = false;
+      P.ui.map.draft = null;
+      P.ui.map.selected = null;
+    }
+  }
+
   closePanel(): void {
+    P.ui.inv.pickFor = null;
     const layer = $('#panel-layer');
     clear(layer);
     layer.classList.add('hidden');
@@ -321,9 +380,102 @@ export class App implements P.PanelHost, SceneHost {
     this.audio.play(key);
   }
 
-  applySettings(): void {
-    saveSettings(this.settings);
+  applySettings(save = true): void {
+    const s = this.settings;
+    if (save) saveSettings(s);
     this.audio.refreshVolumes();
+    const st = document.documentElement.style;
+    st.setProperty('--joy-scale', String(s.joySize));
+    st.setProperty('--joy-opacity', String(s.joyOpacity));
+    st.setProperty('--btn-scale', String(s.buttonSize));
+    document.body.classList.toggle('lefty', s.leftHanded);
+    this.controls.joyRadius = 56 * s.joySize;
+    this.updateControlMode();
+    const wantLow = s.quality === 'eco' || (s.quality === 'auto' && this.lowRes);
+    if (wantLow !== this.renderLow) {
+      this.renderLow = wantLow;
+      this.onResolutionChange?.();
+    }
+    this.layoutT = 0.05;
+  }
+
+  /** Résolution de rendu réduite (qualité économie, ou baisse automatique). */
+  renderLow = false;
+
+  /** Qualité automatique : si le jeu reste saccadé plusieurs secondes, la résolution baisse. */
+  private watchPerformance(dt: number, fps: number): void {
+    if (this.settings.quality !== 'auto' || this.lowRes || this.isSimPaused()) return;
+    if ((window.devicePixelRatio || 1) <= 1.01) return;
+    if (fps > 0 && fps < 24) this.slowFor += dt;
+    else this.slowFor = Math.max(0, this.slowFor - dt * 0.5);
+    if (this.slowFor > 6) {
+      this.lowRes = true;
+      this.applySettings(false);
+      this.toast('Affichage allégé pour gagner en fluidité (Options → Affichage).', 'info');
+    }
+  }
+
+  private inputKind: InputKind = 'touch';
+
+  private onInputKind(k: InputKind): void {
+    this.inputKind = k;
+    this.updateControlMode();
+  }
+
+  /** Commandes tactiles visibles seulement quand elles servent (appareils hybrides compris). */
+  private updateControlMode(): void {
+    const m = this.settings.controlMode;
+    const kbd = m === 'keyboard' || (m === 'auto' && this.inputKind !== 'touch');
+    if (document.body.classList.contains('kbd-mode') !== kbd) {
+      document.body.classList.toggle('kbd-mode', kbd);
+      this.layoutT = 0.05;
+    }
+  }
+
+  resetTips(): void {
+    this.settings.learned = [];
+    this.joyHintDone = false;
+    this.movedFor = 0;
+    $('#joy-hint').classList.remove('hidden');
+    this.applySettings();
+  }
+
+  skipIntro(): void {
+    if (!this.g) return;
+    skipIntro(this.g);
+    this.hud?.forceRefresh();
+    this.toast('Introduction passée. Objectif suivant affiché en haut.', 'info');
+    void this.saveNow('skip');
+  }
+
+  /** Aide élémentaire : affichée une seule fois (réactivable dans les options). */
+  private hint(id: string, text: string): void {
+    if (!this.settings.showHints || this.settings.learned.includes(id)) return;
+    this.settings.learned.push(id);
+    saveSettings(this.settings);
+    this.toast(text, 'tip');
+  }
+
+  /** Ressources obtenues : un seul message regroupé, mis à jour, sans accumulation. */
+  private collectToast(id: string, n: number): void {
+    const now = performance.now();
+    const box = $('#toasts');
+    if (!this.collect || now - this.collect.t > 2500 || !this.collect.el.isConnected) {
+      const el = h('div', { class: 'toast good collect' });
+      box.append(el);
+      while (box.children.length > 4) box.firstChild?.remove();
+      this.collect = { el, items: new Map(), t: now };
+    }
+    const c = this.collect;
+    c.t = now;
+    c.items.set(id, (c.items.get(id) ?? 0) + n);
+    const g = this.g;
+    c.el.textContent = [...c.items].map(([k, v]) => `+${v} ${item(k).name}${g ? ` (${g.player.inv.reduce((s, x) => s + (x && x.id === k ? x.qty : 0), 0)})` : ''}`).join(' · ');
+    c.el.classList.remove('out');
+    clearTimeout(Number(c.el.dataset.t1));
+    clearTimeout(Number(c.el.dataset.t2));
+    c.el.dataset.t1 = String(window.setTimeout(() => c.el.classList.add('out'), 2600));
+    c.el.dataset.t2 = String(window.setTimeout(() => c.el.remove(), 3100));
   }
 
   // ------------------------------------------------------------ construction
@@ -342,6 +494,9 @@ export class App implements P.PanelHost, SceneHost {
     $('#placebar').classList.remove('hidden');
     $('#place-ok').classList.remove('hidden');
     $('#place-name').textContent = `Placer : ${d.name}`;
+    $('#place-help').textContent = document.body.classList.contains('kbd-mode')
+      ? 'Flèches ou ZQSD : déplacer l’aperçu · Entrée : valider · Échap : annuler. La souris déplace aussi l’aperçu.'
+      : 'Touchez ou glissez sur la carte pour déplacer l’aperçu (il s’affiche au-dessus du doigt).';
     this.updatePlaceBar();
   }
 
@@ -355,8 +510,11 @@ export class App implements P.PanelHost, SceneHost {
     $('#controls').classList.add('hidden');
     $('#placebar').classList.remove('hidden');
     $('#place-ok').classList.add('hidden');
-    $('#place-name').textContent = 'Gérer : touchez une construction encadrée';
-    $('#place-reason').textContent = '';
+    $('#place-name').textContent = 'Gérer le camp';
+    $('#place-reason').textContent = 'Touchez une construction encadrée';
+    $('#place-reason').className = 'ok';
+    $('#placebar').classList.add('managing');
+    $('#place-help').textContent = 'Touchez une construction encadrée pour la réparer, l’améliorer ou la démolir. « Terminer » pour revenir au jeu.';
     ($('#place-cancel') as HTMLButtonElement).textContent = 'Terminer';
   }
 
@@ -393,6 +551,7 @@ export class App implements P.PanelHost, SceneHost {
     this.scene.managing = false;
     ($('#place-cancel') as HTMLButtonElement).textContent = 'Annuler';
     $('#placebar').classList.add('hidden');
+    $('#placebar').classList.remove('managing');
     if (this.g && !this.overlay) $('#controls').classList.remove('hidden');
     this.controls.reset();
   }
@@ -418,7 +577,7 @@ export class App implements P.PanelHost, SceneHost {
   }
 
   // ------------------------------------------------------------ messages
-  toast(text: string, kind: 'info' | 'warn' | 'good' = 'info'): void {
+  toast(text: string, kind: 'info' | 'warn' | 'good' | 'tip' = 'info'): void {
     if (this.overlay === 'death' || this.overlay === 'victory') return;
     const box = $('#toasts');
     // messages identiques successifs : un seul message avec compteur
@@ -433,8 +592,9 @@ export class App implements P.PanelHost, SceneHost {
     t.dataset.text = text;
     box.append(t);
     while (box.children.length > 4) box.firstChild?.remove();
-    setTimeout(() => t.classList.add('out'), 3600);
-    setTimeout(() => t.remove(), 4100);
+    const life = kind === 'tip' ? 6500 : 3600;
+    setTimeout(() => t.classList.add('out'), life);
+    setTimeout(() => t.remove(), life + 500);
   }
 
   // ------------------------------------------------------------ écrans
@@ -487,7 +647,7 @@ export class App implements P.PanelHost, SceneHost {
     const land = matchMedia('(orientation: portrait)').matches ? h('div', { class: 'hint-land', text: 'Conseil : le mode paysage offre la meilleure vue. Le portrait reste jouable.' }) : null;
     this.screen(h('div', { class: 'screen title' }, art, h('h1', { text: 'Les Bois de Cendre' }),
       h('div', { class: 'sub', text: 'Survie et construction dans une forêt médiévale infestée de morts. Retrouvez les trois fragments du sceau et libérez la forêt.' }),
-      list, land), 'title');
+      list, land, h('div', { class: 'version', text: `Version ${this.version}` })), 'title');
   }
 
   newGame(): void {
@@ -512,7 +672,8 @@ export class App implements P.PanelHost, SceneHost {
       return;
     }
     this.startGame(g);
-    const msg = res.usedBackup ? `La dernière sauvegarde était invalide (${res.error}). La sauvegarde de secours précédente a été chargée.` : `Jour ${g.day} · ${Math.round(g.world.exploredRatio() * 100)} % exploré · ${g.fragmentsFound()}/3 fragments.`;
+    let msg = res.usedBackup ? `La dernière sauvegarde était invalide (${res.error}). La sauvegarde de secours précédente a été chargée.` : `Jour ${g.day} · ${Math.round(g.world.exploredRatio() * 100)} % exploré · ${g.fragmentsFound()}/3 fragments.`;
+    if (g.genVersion < 2) msg += ' Votre monde est conservé tel quel : les nouvelles scènes d’exploration n’apparaissent que dans les nouvelles parties.';
     this.gate('Partie chargée', msg, 'Je suis prêt');
   }
 
@@ -532,10 +693,9 @@ export class App implements P.PanelHost, SceneHost {
     if (this.movedFor > 2.5) {
       this.joyHintDone = true;
       $('#joy-hint').classList.add('hidden');
-      try {
-        localStorage.setItem('bdc-joy-hint', 'vu');
-      } catch {
-        /* sans importance */
+      if (!this.settings.learned.includes('joystick')) {
+        this.settings.learned.push('joystick');
+        saveSettings(this.settings);
       }
     }
   }
@@ -557,7 +717,7 @@ export class App implements P.PanelHost, SceneHost {
       return r;
     };
     let top = 0;
-    for (const s of ['#status', '#objective', '#menu-buttons']) {
+    for (const s of ['#status', '#objective', '#pin', '#menu-buttons']) {
       const r = vis(s);
       if (r && r.top < H / 2) top = Math.max(top, r.bottom);
     }
@@ -605,7 +765,7 @@ export class App implements P.PanelHost, SceneHost {
         h('span', { text: 'Ennemis vaincus' }), h('b', { text: String(s.kills) }),
         h('span', { text: 'Exploration' }), h('b', { text: `${Math.round(g.world.exploredRatio() * 100)} %` }),
         h('span', { text: 'Constructions' }), h('b', { text: String(built) }),
-        h('span', { text: 'Notes lues' }), h('b', { text: `${s.notesRead.length}/8` }),
+        h('span', { text: 'Notes lues' }), h('b', { text: `${s.notesRead.length}/${g.world.objects.filter((o) => o.type === 'note').length}` }),
         h('span', { text: 'Temps de jeu' }), h('b', { text: `${min} min` }),
       ),
       h('div', { class: 'actions', style: { justifyContent: 'center' } },

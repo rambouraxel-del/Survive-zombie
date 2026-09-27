@@ -25,10 +25,14 @@
         <button id="objective" aria-label="Objectif en cours : toucher pour les détails">
           <span class="obj-ico"></span><span id="obj-title"></span><span id="obj-progress"></span>
         </button>
+        <button id="pin" class="hidden" aria-label="Recette suivie : toucher pour l’ouvrir">
+          <span class="pin-ico"></span><span id="pin-text"></span>
+        </button>
         <div id="menu-buttons">
-          <button class="mbtn" id="m-inv" aria-label="Sac"><span class="mico"></span><span class="mlbl">Sac</span></button>
-          <button class="mbtn" id="m-menu" aria-label="Menu : fabriquer, construire, carte, options"><span class="mico"></span><span class="mlbl">Menu</span></button>
+          <button class="mbtn" id="m-inv" aria-label="Sac"><span class="mico"></span><span class="mlbl">Sac</span><kbd>I</kbd></button>
+          <button class="mbtn" id="m-menu" aria-label="Menu : fabriquer, construire, carte, options"><span class="mico"></span><span class="mlbl">Menu</span><kbd>Échap</kbd></button>
         </div>
+        <div id="kbd-hints" aria-hidden="true"><span><kbd>ZQSD</kbd> marcher</span><span><kbd>Maj</kbd> courir</span><span><kbd>Espace</kbd> attaquer</span><span><kbd>E</kbd> action</span><span><kbd>K</kbd> esquive</span><span><kbd>1-5</kbd> raccourcis</span><span><kbd>C</kbd> fabriquer</span><span><kbd>B</kbd> construire</span><span><kbd>M</kbd> carte</span></div>
         <div id="debug" class="hidden"></div>
       </div>
 
@@ -51,7 +55,7 @@
           <button id="place-cancel" class="pbtn">Annuler</button>
           <button id="place-ok" class="pbtn ok">Valider</button>
         </div>
-        <div id="place-help">Touchez ou glissez sur la carte pour déplacer l’aperçu (il s’affiche au-dessus du doigt). Flèches du clavier : ajuster.</div>
+        <div id="place-help"></div>
       </div>
 
       <div id="toasts" aria-live="polite"></div>

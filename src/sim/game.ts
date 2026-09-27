@@ -6,7 +6,7 @@ import { GUARANTEED, LOOT } from '../data/loot';
 import { createWorld } from '../world/generate';
 import type { Building, World, WObj } from '../world/world';
 import { addItem, countItem, makeSlots, newStack, removeItem, type Slots, type Stack } from './inventory';
-import { evaluateObjectives, OBJECTIVES } from './objectives';
+import { evaluateObjectives, nightChecklist, OBJECTIVES } from './objectives';
 import { Rng } from './rng';
 import type { Assault, Enemy, FinalState, GameEvent, InputState, PlayerState, Projectile, Stats } from './types';
 import { updateEnemies, updateSpawning, damageEnemy, enemiesNear } from './enemies';
@@ -358,7 +358,9 @@ export class Game {
 
   private onPhase(ph: Phase): void {
     if (ph === 'dusk') {
-      this.toast('Le crépuscule tombe : une horde approchera à la nuit. Rentrez au camp !', 'warn');
+      // liste indicative : ce qui manque encore pour la nuit (non bloquant)
+      const miss = nightChecklist(this).filter((x) => !x.done).map((x) => x.label.split(' :')[0].split(' (')[0].toLowerCase());
+      this.toast(`Le crépuscule tombe : une horde approchera à la nuit. Rentrez au camp !${miss.length ? ` À prévoir : ${miss.join(', ')}.` : ''}`, 'warn');
       this.emit({ type: 'sound', key: 'bell' });
     } else if (ph === 'night') {
       this.toast('La nuit est là. Restez près de la lumière.', 'warn');
@@ -592,9 +594,11 @@ export class Game {
       this.useDurability('weapon');
       this.emit({ type: 'sound', key: 'bow' });
     } else {
-      p.action = w.anim === 'thrust' ? 'thrust' : 'slash';
-      p.actionT = 0.36;
-      p.pendingHit = 0.14;
+      // outil utilisé comme arme (hache, masse, pioche) : geste d'outil, coup porté un peu plus tard
+      const toolSwing = !!wd?.tool && !this.player.equip.weapon;
+      p.action = w.anim === 'thrust' ? 'thrust' : toolSwing ? 'chop' : 'slash';
+      p.actionT = toolSwing ? 0.4 : 0.36;
+      p.pendingHit = toolSwing ? 0.2 : 0.14;
       p.attackCd = w.cooldown * (tired ? 1.8 : 1);
       this.emit({ type: 'sound', key: `swing_${this.rng.int(0, 1)}` });
       this.emit({ type: 'swing', x: p.x + p.aimX * 22, y: p.y - 16 + p.aimY * 18, angle: Math.atan2(p.aimY, p.aimX) });
