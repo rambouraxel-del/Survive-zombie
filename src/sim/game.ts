@@ -571,7 +571,7 @@ export class Game {
     const cost = p.stamina >= w.stamina ? w.stamina : 0;
     const tired = cost === 0;
     // aide à la visée : ennemi le plus proche dans un cône devant
-    const aimAt = this.autoAim(w.ranged ? w.reach : w.reach + 36, w.ranged ? 80 : 70);
+    const aimAt = this.autoAim(w.ranged ? w.reach : w.reach + 36, w.ranged ? 80 : 70, w.ranged ? 0 : w.reach + 12);
     if (aimAt) {
       const d = Math.hypot(aimAt.x - p.x, aimAt.y - p.y) || 1;
       p.aimX = (aimAt.x - p.x) / d;
@@ -608,7 +608,11 @@ export class Game {
     this.noise(p.x, p.y, HARVEST.combatNoiseRadius * 0.5);
   }
 
-  autoAim(range: number, coneDeg: number): Enemy | null {
+  /**
+   * Aide à la visée : ennemi devant soi (cône), ou n'importe où à portée réelle de l'arme
+   * (un zombie de côté, à portée de lance, est visé plutôt que de frapper dans le vide).
+   */
+  autoAim(range: number, coneDeg: number, anyDirWithin = 34): Enemy | null {
     const p = this.player;
     let best: Enemy | null = null;
     let bestScore = Infinity;
@@ -619,8 +623,7 @@ export class Game {
       const dy = e.y - p.y;
       const d = Math.hypot(dx, dy) || 1;
       const dot = (dx * p.aimX + dy * p.aimY) / d;
-      // derrière le joueur mais tout près : accepté quand même (assistance légère)
-      if (dot < cos && d > 34) continue;
+      if (dot < cos && d > Math.max(34, anyDirWithin)) continue;
       const score = d * (2 - dot);
       if (score < bestScore) {
         bestScore = score;

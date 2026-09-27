@@ -31,6 +31,7 @@
    ],
    "original_files": [
     "Objects/Furniture/Barrel.png",
+    "Objects/Furniture/Cauldron.png",
     "Objects/Furniture/Chest.png",
     "Objects/Furniture/Crate.png",
     "Objects/Furniture/Lighting, Outdoors.png",
@@ -38,6 +39,7 @@
     "Objects/Furniture/Smithing/Anvils.png",
     "Objects/Furniture/Smithing/Coal Piles.png",
     "Objects/Furniture/Smithing/Furnace A.png",
+    "Objects/Furniture/Smithing/Workbench, Smith.png",
     "Objects/Furniture/Stone Slab.png",
     "Objects/Furniture/Wolf Stone.png",
     "Objects/Furniture/Workbench, Carpentry.png",
@@ -146,6 +148,23 @@
    ],
    "original_files": "voir CREDITS-characters.csv",
    "modifications": "Superposition des calques (comme le générateur), recoloration avec les palettes officielles du générateur (vêtements, cheveux, peau « zombie_green »), placement des animations dans une seule feuille."
+  },
+  {
+   "pack": "Universal LPC Spritesheet Character Generator",
+   "authors": [
+    "voir assets/chars/CREDITS-characters.csv (auteurs fichier par fichier)"
+   ],
+   "source": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator",
+   "downloaded_from": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator (commit 4963a69795255fb15a934c47f478a8bdcf3668f5)",
+   "license": "CC-BY-SA 3.0 (chaque calque est aussi proposé sous d’autres licences compatibles, voir le CSV ; la lance n’existe qu’en CC-BY-SA 3.0)",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "credits_files": "public/assets/chars/CREDITS-characters.csv",
+   "local_files": [
+    "assets/chars/equip.png",
+    "assets/chars/equip.json"
+   ],
+   "original_files": "voir CREDITS-characters.csv (lignes tools/…, weapon/…, torso/armour/…)",
+   "modifications": "Découpage des cellules des calques d’armes, d’outils et de protections, rognage de la transparence, assemblage en atlas (build_equipment.py). La 9e image de marche à l’arc, absente du pack, réutilise la 1re. Aucune retouche de pixels."
   },
   {
    "pack": "Kenney — Impact Sounds",

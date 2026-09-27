@@ -81,6 +81,10 @@ entries.append({**PACKS['lpc-signposts'], 'local_files': ['assets/atlas/items.pn
 entries.append({**PACKS['ulpc'], 'local_files': ['assets/chars/player.png', 'assets/chars/rodeur.png', 'assets/chars/affame.png', 'assets/chars/brute.png', 'assets/chars/CREDITS-characters.csv'],
                 'original_files': 'voir CREDITS-characters.csv',
                 'modifications': 'Superposition des calques (comme le générateur), recoloration avec les palettes officielles du générateur (vêtements, cheveux, peau « zombie_green »), placement des animations dans une seule feuille.'})
+entries.append({**PACKS['ulpc'], 'local_files': ['assets/chars/equip.png', 'assets/chars/equip.json'],
+                'original_files': 'voir CREDITS-characters.csv (lignes tools/…, weapon/…, torso/armour/…)',
+                'license': 'CC-BY-SA 3.0 (chaque calque est aussi proposé sous d’autres licences compatibles, voir le CSV ; la lance n’existe qu’en CC-BY-SA 3.0)',
+                'modifications': 'Découpage des cellules des calques d’armes, d’outils et de protections, rognage de la transparence, assemblage en atlas (build_equipment.py). La 9e image de marche à l’arc, absente du pack, réutilise la 1re. Aucune retouche de pixels.'})
 for key, src in SOUNDS.items():
     pack = src.split('/')[0]
     name, author, url, lic = AUDIO_PACKS[pack]

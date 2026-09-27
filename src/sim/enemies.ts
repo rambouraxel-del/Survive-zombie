@@ -350,6 +350,8 @@ function pickType(g: Game, zone: string, kind: 'ambient' | 'assault'): EnemyType
   if (kind === 'assault') {
     if (g.day >= 3 && r < 0.14) return 'brute';
     if (g.day >= 2 && r < 0.42) return 'affame';
+    // première nuit : un affamé (rapide, fragile) peut accompagner les rôdeurs
+    if (r < 0.2) return 'affame';
     return 'rodeur';
   }
   switch (zone) {
@@ -473,11 +475,16 @@ export function updateSpawning(g: Game, dt: number): void {
   if (a && !a.done && a.night === g.day && ph === 'night') {
     a.timer -= dt;
     if (a.spawned < a.total && a.timer <= 0 && alive.length < ENEMY_CAP) {
-      a.timer = ASSAULT.spawnWindow / a.total;
+      // la horde arrive par petits groupes (2 la première nuit, puis 3) : il faut gérer
+      // plusieurs assaillants à la fois, sans être submergé d'un coup
+      const group = Math.min(a.total - a.spawned, g.day <= 1 ? 2 : 3);
+      a.timer = ASSAULT.spawnWindow / Math.ceil(a.total / group);
       const pt = findSpawnPoint(g, p.x, p.y, 18 * TILE, 25 * TILE);
       if (pt) {
-        spawnEnemy(g, pickType(g, 'forest', 'assault'), pt.x, pt.y, 'assault');
-        a.spawned++;
+        for (let i = 0; i < group; i++) {
+          spawnEnemy(g, pickType(g, 'forest', 'assault'), pt.x + (i - (group - 1) / 2) * 20, pt.y + (i % 2) * 14, 'assault');
+          a.spawned++;
+        }
       }
     }
     if (a.spawned >= a.total && !g.enemies.some((e) => e.kind === 'assault' && e.dying <= 0)) {

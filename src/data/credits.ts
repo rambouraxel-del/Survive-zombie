@@ -24,6 +24,13 @@ export const CREDITS: CreditEntry[] = [
     note: 'Calques assemblés sans retouche. Liste fichier par fichier : assets/chars/CREDITS-characters.csv.',
   },
   {
+    pack: 'Universal LPC — équipement porté (hache, masse, pioche, lance, épée, massue, arc, armures de cuir et de plaques)',
+    authors: 'bluecarrot16, JaidynReiman, Pierre Vigier (pvigier), Tuomo Untinen (reemax), Johannes Sjölund (wulax), Inboxninja, Eliza Wyatt (ElizaWy), Napsio (Vitruvian Studio), Michael Whitlock (bigbeargames)',
+    license: 'CC-BY-SA 3.0 (calques également sous OGA-BY 3.0 / CC-BY 4.0 / GPL selon les fichiers)',
+    url: 'https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator',
+    note: 'Calques découpés et assemblés sans retouche. Liste fichier par fichier : assets/chars/CREDITS-characters.csv.',
+  },
+  {
     pack: '[LPC] Items and game effects (icônes d’armes, d’outils, corde, torche, fragments, effets)',
     authors: 'Tuomo Untinen, Johannes Sjölund (Wulax), Jetrel, Gwes, Daniel Eddeland, Jaidyn Reiman, Nila122, Lanea Zimmerman (Sharm), ArtisticDude, Stephen Challener (Redshrike), pennomi, laetissima, makrohn',
     license: 'GPL 3.0 (licence de la copie redistribuée)',
