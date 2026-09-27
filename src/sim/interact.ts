@@ -7,15 +7,14 @@
 // Le joueur peut aussi choisir une cible en la touchant (sans se déplacer).
 import { PLAYER, TILE } from '../config/balance';
 import { BUILDING_BY_ID, buildingStats } from '../data/buildings';
-import { item } from '../data/items';
 import { NOTE_BY_ID } from '../data/notes';
 import type { Game } from './game';
-import { addItem, countItem, isEmpty } from './inventory';
-import { spawnEnemy, findSpawnPoint } from './enemies';
+import { addItem, isEmpty } from './inventory';
 import type { WObj } from '../world/world';
+import { enterHouse, leaveHouse, lightCheckpoint, openShortcut, pullLever, shortcutSideOk } from './travel';
 
 export interface Target {
-  kind: 'harvest' | 'open' | 'pickup' | 'read' | 'take' | 'use' | 'repair' | 'sanctuary' | 'info';
+  kind: 'harvest' | 'open' | 'pickup' | 'read' | 'take' | 'use' | 'info' | 'travel';
   /** verbe court affiché dans le bouton d'action */
   label: string;
   /** nom de la cible, affiché près d'elle */
@@ -38,17 +37,29 @@ const HARVEST_VERB: Record<string, [string, string]> = {
   rock: ['Miner', 'world:i_stone'],
   ore_iron: ['Miner', 'world:i_iron_ore'],
   ore_coal: ['Miner', 'world:i_coal'],
+  crystal: ['Miner', 'items:i_gem_green'],
   bush: ['Cueillir', 'world:i_berries'],
   grass: ['Arracher', 'world:i_fiber'],
   morel: ['Cueillir', 'world:i_morel'],
+  herb: ['Cueillir', 'items:i_herb'],
+  blackmoss: ['Racler', 'items:i_moss'],
+  glowcap: ['Cueillir', 'items:i_sprout'],
 };
 
 export function objectName(o: WObj): string {
   switch (o.type) {
     case 'tree':
-      return o.sprite.includes('dead') ? 'Arbre mort' : o.sprite.includes('pine') ? 'Pin' : o.sprite.includes('autumn') ? 'Arbre roux' : 'Chêne';
+      return o.label === 'dead' || o.sprite.includes('dead') || o.sprite.includes('bare') || o.sprite.includes('twisted') ? 'Arbre mort' : o.sprite.includes('pine') ? 'Pin' : o.sprite.includes('autumn') ? 'Arbre roux' : 'Chêne';
     case 'rock':
-      return o.sprite.includes('pebble') ? 'Galet' : o.sprite.includes('big') ? 'Gros rocher' : 'Rocher';
+      return o.label === 'big' ? 'Gros rocher' : 'Rocher';
+    case 'crystal':
+      return 'Veine de cristal';
+    case 'herb':
+      return 'Herbe de soin';
+    case 'blackmoss':
+      return 'Mousse noire';
+    case 'glowcap':
+      return 'Champignons luminescents';
     case 'ore_iron':
       return 'Filon de fer';
     case 'ore_coal':
@@ -87,9 +98,10 @@ function visible(g: Game, tx: number, ty: number, selfObj = -1, selfB = -1): boo
     const cy = Math.floor(y / TILE);
     if (cx === Math.floor(p.x / TILE) && cy === Math.floor(p.y / TILE)) continue;
     const o = w.objectAtTile(cx, cy);
-    if (o && o.id !== selfObj && o.solid && !o.removed && (o.type === 'house' || o.type === 'tree' || o.type === 'rock' || o.type === 'decor')) return false;
+    if (o && o.id !== selfObj && o.solid && (o.type === 'house' || o.type === 'lodge' || o.type === 'tree' || o.type === 'rock' || o.type === 'gate' || (o.type === 'prop' && o.fh > 1))) return false;
+    if (w.wall[w.idx(cx, cy)]) return false;
     const b = w.buildingAtTile(cx, cy);
-    if (b && b.id !== selfB && (b.type === 'palisade' || b.type === 'door')) return false;
+    if (b && b.id !== selfB && b.type === 'palisade') return false;
   }
   return true;
 }
@@ -113,7 +125,7 @@ function candidates(g: Game, reach: number): Cand[] {
     const d = Math.hypot(bag.x - fx, bag.y - fy);
     if (d > reach + 10) continue;
     out.push({
-      t: { kind: 'pickup', label: 'Ramasser', name: bag.kind === 'death' ? 'Votre sac' : 'Sac', icon: 'items:i_bag', key: `bag${bag.id}`, x: bag.x, y: bag.y - 8, w: 24, h: 24, bagId: bag.id, run: (gg) => pickupBag(gg, bag.id) },
+      t: { kind: 'pickup', label: 'Ramasser', name: 'Sac', icon: 'items:i_bag', key: `bag${bag.id}`, x: bag.x, y: bag.y - 8, w: 24, h: 24, bagId: bag.id, run: (gg) => pickupBag(gg, bag.id) },
       dist: d, prio: 0, box: { x0: bag.x - 10, y0: bag.y - 20, x1: bag.x + 10, y1: bag.y },
     });
   }
@@ -127,7 +139,7 @@ function candidates(g: Game, reach: number): Cand[] {
   for (let ty = ty0; ty <= ty1; ty++)
     for (let tx = tx0; tx <= tx1; tx++) {
       const o = w.objectAtTile(tx, ty);
-      if (o && !seenObj.has(o.id) && !o.removed) {
+      if (o && !seenObj.has(o.id)) {
         seenObj.add(o.id);
         const box = { x0: o.fx * TILE, y0: o.fy * TILE, x1: (o.fx + o.fw) * TILE, y1: (o.fy + o.fh) * TILE };
         const d = rectDist(fx, fy, box.x0, box.y0, box.x1, box.y1);
@@ -147,29 +159,31 @@ function candidates(g: Game, reach: number): Cand[] {
         const tb = { x: (b.x + bd.w / 2) * TILE, y: (b.y + bd.h / 2) * TILE, w: bd.w * TILE, h: bd.h * TILE, buildingId: b.id, key: `b${b.id}` };
         let t: Target | null = null;
         let prio = 3;
-        if (b.type === 'chest') {
+        if (bd.storage) {
           const empty = !!b.items && isEmpty(b.items);
           t = { kind: 'open', label: 'Ouvrir', name: bs.name, icon: bs.icon, empty, ...tb, run: (gg) => { gg.openContainer = { kind: 'building', id: b.id }; gg.emit({ type: 'sound', key: 'chest' }); gg.emit({ type: 'ui', panel: 'container' }); } };
-        } else if (b.type === 'bed') {
+        } else if (bd.rest) {
           t = { kind: 'use', label: 'Dormir', name: bd.name, icon: bd.icon, ...tb, run: (gg) => gg.emit({ type: 'ui', panel: 'bed' }) };
+        } else if (bd.station === 'enchanter') {
+          t = { kind: 'use', label: 'Enchanter', name: bs.name, icon: bs.icon, ...tb, run: (gg) => gg.emit({ type: 'ui', panel: 'enchant' }) };
         } else if (bd.station) {
           t = { kind: 'use', label: 'Utiliser', name: bs.name, icon: bs.icon, ...tb, run: (gg) => gg.emit({ type: 'ui', panel: 'craft', ref: bd.station }) };
+        } else if (bd.dummy) {
+          prio = 5;
+          t = { kind: 'info', label: 'Examiner', name: bd.name, icon: bd.icon, ...tb, run: (gg) => gg.toast('Frappez le mannequin pour essayer vos armes, compétences et ultimes : les dégâts s’affichent, sans gain de maîtrise ni de jauge.', 'info') };
         } else if (b.type === 'trap') {
           if ((b.meat ?? 0) > 0) {
             prio = 2;
             t = { kind: 'take', label: 'Relever', name: `Piège (${b.meat})`, icon: 'world:i_meat_raw', ...tb, run: (gg) => {
               const n = b.meat ?? 0;
               b.meat = 0;
-              gg.give('meat_raw', n, undefined, true);
+              gg.give('meat_raw', n, { collected: true });
               gg.emit({ type: 'float', x: tb.x, y: tb.y - 24, text: `+${n} Viande crue`, color: '#d9f7a6' });
               gg.emit({ type: 'collect', id: 'meat_raw', n });
               gg.emit({ type: 'sound', key: 'pick_0' });
               gg.emit({ type: 'buildChanged' });
             } };
           }
-        } else if (b.hp < bd.hp) {
-          prio = 4;
-          t = { kind: 'repair', label: 'Réparer', name: bd.name, icon: 'world:i_hammer', ...tb, run: (gg) => { repairBuildingAction(gg, b.id); } };
         }
         if (t) out.push({ t, dist: d, prio: t.empty ? 6 : prio, box });
       }
@@ -253,11 +267,27 @@ function objectTarget(g: Game, o: WObj): { t: Target; prio: number } | null {
       const empty = !!o.opened && !!o.items && isEmpty(o.items);
       return { prio: empty ? 6 : 1, t: { kind: 'open', label: 'Fouiller', name: empty ? `${name} (vide)` : name, icon: 'items:i_chest', empty, ...box, run: (gg) => { gg.openWorldContainer(o); gg.openContainer = { kind: 'obj', id: o.id }; gg.emit({ type: 'ui', panel: 'container' }); } } };
     }
-    case 'altar':
-      if (o.frag && !o.taken) return { prio: 0, t: { kind: 'take', label: 'Prendre', name: item(o.frag).name, icon: `items:i_${o.frag}`, ...box, run: (gg) => takeFragment(gg, o) } };
-      return null;
-    case 'sanctuary':
-      return { prio: 0, t: sanctuaryTarget(g, o, box) };
+    case 'checkpoint':
+      if (!o.open) return { prio: 0, t: { kind: 'use', label: 'Allumer', name, icon: 'world:campfire_1', ...box, run: (gg) => lightCheckpoint(gg, o) } };
+      return { prio: 2, t: { kind: 'use', label: 'Halte', name, icon: 'world:campfire_1', ...box, run: (gg) => { lightCheckpoint(gg, o); gg.emit({ type: 'ui', panel: 'checkpoint', ref: o.key }); } } };
+    case 'exit':
+      return { prio: 1, t: { kind: 'travel', label: 'Rentrer', name: 'Retour au camp', icon: 'items:signpost', ...box, run: (gg) => gg.emit({ type: 'ui', panel: 'exit' }) } };
+    case 'gate':
+      if (o.open) return null;
+      return { prio: 4, t: { kind: 'info', label: 'Examiner', name, icon: 'props:portcullis', ...box, run: (gg) => gg.toast(o.openedBy === 'boss' ? `${name} : scellée tant que le maître des lieux est en vie.` : `${name} : fermée. Un mécanisme doit l’ouvrir, quelque part de l’autre côté.`, 'info') } };
+    case 'lever':
+      return { prio: o.open ? 5 : 0, t: { kind: 'use', label: o.open ? 'Actionné' : 'Actionner', name, icon: 'props:chains', empty: !!o.open, ...box, run: (gg) => pullLever(gg, o) } };
+    case 'shortcut':
+      if (o.open) return null;
+      return { prio: 1, t: { kind: 'use', label: shortcutSideOk(g, o) ? (o.side === 'south' ? 'Abaisser' : 'Pousser') : 'Examiner', name, icon: o.sprite, ...box, run: (gg) => openShortcut(gg, o) } };
+    case 'door':
+      return { prio: 0, t: { kind: 'travel', label: o.destination === 'house' ? 'Entrer' : 'Sortir', name: o.destination === 'house' ? 'Votre maison' : 'Retour au camp', icon: 'world:door_closed', ...box, run: (gg) => (o.destination === 'house' ? enterHouse(gg) : leaveHouse(gg)) } };
+    case 'travel':
+      return { prio: 0, t: { kind: 'travel', label: 'Partir', name: 'Carrefour des expéditions', icon: 'items:signpost', ...box, run: (gg) => gg.emit({ type: 'ui', panel: 'travel' }) } };
+    case 'rack':
+      return { prio: 1, t: { kind: 'use', label: g.starter ? 'Examiner' : 'Choisir', name: g.starter ? 'Râtelier d’armes' : 'Choisir une arme de départ', icon: 'props:weapon_rack', ...box, run: (gg) => gg.emit({ type: 'ui', panel: 'rack' }) } };
+    case 'reserved':
+      return { prio: 6, t: { kind: 'info', label: 'Examiner', name, icon: 'world:hay_pile', ...box, run: (gg) => gg.toast('Emplacement réservé à un futur compagnon (rien à faire ici pour l’instant).', 'info') } };
     default: {
       const hv = HARVEST_VERB[o.type];
       if (!hv || o.depleted) return null;
@@ -266,73 +296,14 @@ function objectTarget(g: Game, o: WObj): { t: Target; prio: number } | null {
   }
 }
 
-function sanctuaryTarget(g: Game, o: WObj, box: { x: number; y: number; w: number; h: number; objId: number; key: string }): Target {
-  const f = g.final.state;
-  const name = 'Pierre du Loup';
-  if (f === 'locked') {
-    const have = ['frag_1', 'frag_2', 'frag_3'].filter((id) => countItem(g.player.inv, id) > 0).length;
-    if (have >= 3) return { kind: 'sanctuary', label: 'Restaurer', name, icon: 'world:seal_stone_on', ...box, run: (gg) => restoreSanctuary(gg) };
-    return { kind: 'info', label: 'Examiner', name: `Sceau brisé (${have}/3)`, icon: 'world:seal_stone', ...box, run: (gg) => gg.toast(`Il manque ${3 - have} fragment(s) pour restaurer le sceau.`, 'info') };
-  }
-  if (f === 'ready') return { kind: 'sanctuary', label: 'Assaut', name: 'Lancer l’assaut final', icon: 'world:seal_stone_on', ...box, run: (gg) => gg.emit({ type: 'ui', panel: 'sanctuary' }) };
-  if (f === 'active') return { kind: 'info', label: 'Tenir', name: 'Tenez bon !', icon: 'world:seal_stone_on', ...box, run: () => {} };
-  void o;
-  return { kind: 'info', label: 'Examiner', name: 'La forêt est libre', icon: 'world:seal_stone_on', ...box, run: (gg) => gg.toast('Le sceau est entier. La forêt respire à nouveau.', 'good') };
-}
-
 export function readNote(g: Game, o: WObj): void {
   if (!o.noteId) return;
-  if (!g.stats.notesRead.includes(o.noteId)) g.stats.notesRead.push(o.noteId);
+  if (!g.stats.notesRead.includes(o.noteId)) {
+    g.stats.notesRead.push(o.noteId);
+    g.log(`Note lue : ${NOTE_BY_ID[o.noteId]?.title ?? ''}.`);
+  }
   g.emit({ type: 'sound', key: 'pick_1' });
   g.emit({ type: 'ui', panel: 'note', ref: o.noteId });
-}
-
-export function takeFragment(g: Game, o: WObj): void {
-  if (!o.frag || o.taken) return;
-  const left = addItem(g.player.inv, o.frag, 1);
-  if (left > 0) {
-    g.toast('Inventaire plein : libérez un emplacement pour prendre le fragment.', 'warn');
-    g.emit({ type: 'sound', key: 'error' });
-    return;
-  }
-  o.taken = true;
-  g.fragmentsTaken.push(o.frag);
-  g.emit({ type: 'objChanged', id: o.id });
-  g.emit({ type: 'sound', key: 'objective' });
-  g.toast(`${item(o.frag).name} récupéré ! (${g.fragmentsFound()}/3)`, 'good');
-  // embuscade
-  for (let i = 0; i < 3; i++) {
-    const pt = findSpawnPoint(g, g.player.x, g.player.y, 9 * TILE, 14 * TILE);
-    if (pt) spawnEnemy(g, 'affame', pt.x, pt.y, 'assault');
-  }
-  g.toast('Des cris s’élèvent autour de vous…', 'warn');
-  g.emit({ type: 'save', reason: 'fragment' });
-}
-
-export function restoreSanctuary(g: Game): void {
-  if (g.final.state !== 'locked') return;
-  const frags = ['frag_1', 'frag_2', 'frag_3'];
-  if (!frags.every((id) => countItem(g.player.inv, id) > 0)) return;
-  // les fragments quittent l'inventaire pour rejoindre le sceau (jamais perdus)
-  for (let i = 0; i < g.player.inv.length; i++) {
-    const s = g.player.inv[i];
-    if (s && frags.includes(s.id)) g.player.inv[i] = null;
-  }
-  g.final.state = 'ready';
-  g.sanctuaryRestored = true;
-  const o = g.world.objects[g.world.sanctuaryId];
-  o.sprite = 'world:seal_stone_on';
-  g.emit({ type: 'objChanged', id: o.id });
-  g.emit({ type: 'sound', key: 'objective' });
-  g.toast('Le sceau est restauré. Préparez vos défenses, puis lancez l’assaut final depuis la pierre.', 'good');
-  g.emit({ type: 'save', reason: 'restore' });
-}
-
-export function startFinalAssault(g: Game): boolean {
-  if (g.final.state !== 'ready') return false;
-  g.final = { state: 'active', wave: 0, pause: 0, spawnedWave: false };
-  g.emit({ type: 'save', reason: 'final' });
-  return true;
 }
 
 export function pickupBag(g: Game, bagId: number): void {
@@ -343,60 +314,17 @@ export function pickupBag(g: Game, bagId: number): void {
   for (let i = 0; i < bag.items.length; i++) {
     const s = bag.items[i];
     if (!s) continue;
-    const rest = addItem(g.player.inv, s.id, s.qty, s.dur);
+    const rest = addItem(g.player.inv, s.id, s.qty, s.ench);
     took += s.qty - rest;
     if (rest > 0) {
       s.qty = rest;
       left += rest;
     } else bag.items[i] = null;
   }
-  if (isEmpty(bag.items)) {
-    g.world.bags.delete(bagId);
-    if (g.deathBagId === bagId) g.deathBagId = -1;
-  }
+  if (isEmpty(bag.items)) g.world.bags.delete(bagId);
   g.emit({ type: 'bagsChanged' });
   g.emit({ type: 'sound', key: 'pick_1' });
   if (left > 0) g.toast(`Inventaire plein : ${left} objet(s) restent dans le sac.`, 'warn');
   else if (took > 0) g.toast(`Sac récupéré (${took} objet(s)).`, 'good');
 }
 
-export function repairCost(g: Game, buildingId: number): Record<string, number> | null {
-  const b = g.world.buildings.get(buildingId);
-  if (!b) return null;
-  const bd = BUILDING_BY_ID[b.type];
-  const missing = 1 - b.hp / bd.hp;
-  if (missing <= 0) return {};
-  const cost: Record<string, number> = {};
-  for (const [id, n] of Object.entries(bd.cost)) cost[id] = Math.max(1, Math.ceil(n * missing * 0.5));
-  return cost;
-}
-
-export function repairBuildingAction(g: Game, buildingId: number): boolean {
-  const b = g.world.buildings.get(buildingId);
-  if (!b) return false;
-  const cost = repairCost(g, buildingId)!;
-  const missing = Object.entries(cost).filter(([id, n]) => countItem(g.player.inv, id) < n);
-  if (missing.length) {
-    g.toast(`Réparation impossible : il faut ${Object.entries(cost).map(([id, n]) => `${n} ${item(id).name}`).join(', ')}.`, 'warn');
-    g.emit({ type: 'sound', key: 'error' });
-    return false;
-  }
-  for (const [id, n] of Object.entries(cost)) {
-    // retrait atomique : vérifié ci-dessus
-    let left = n;
-    for (let i = 0; i < g.player.inv.length && left > 0; i++) {
-      const s = g.player.inv[i];
-      if (s && s.id === id) {
-        const k = Math.min(s.qty, left);
-        s.qty -= k;
-        left -= k;
-        if (s.qty <= 0) g.player.inv[i] = null;
-      }
-    }
-  }
-  b.hp = BUILDING_BY_ID[b.type].hp;
-  g.emit({ type: 'buildChanged' });
-  g.emit({ type: 'sound', key: 'build' });
-  g.toast(`${BUILDING_BY_ID[b.type].name} réparé(e).`, 'good');
-  return true;
-}

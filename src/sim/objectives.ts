@@ -1,196 +1,139 @@
-// Objectifs : courte introduction jouable puis quête principale.
-// Les conditions reposent sur des statistiques cumulées ou sur l'état du monde :
-// un objectif déjà réalisé avant son activation est validé immédiatement.
-// L'introduction peut être passée ; les anciennes sauvegardes ne la refont pas.
+// Objectifs et journal : courte ligne principale (guidage du premier lancement puis
+// progression des régions) et quelques objectifs facultatifs. Pas de longue intrigue.
+// Les objectifs ont des emplacements prévus pour de futurs dialogues et compagnons.
 import type { Game } from './game';
-import { FRAGMENTS, item } from '../data/items';
 import { countItem } from './inventory';
+import { item } from '../data/items';
 
 export interface Objective {
   id: string;
   title: string;
   hint: string;
-  /** progression courte (ligne d'objectif) */
   progress?: (g: Game) => string;
-  /** détails (panneau d'objectif) : lignes de liste à cocher */
   checklist?: (g: Game) => { label: string; done: boolean; optional?: boolean }[];
   done: (g: Game) => boolean;
-  /** fait partie de l'introduction (peut être passé) */
+  /** guidage du premier lancement (peut être passé) */
   intro?: boolean;
+  /** objectif facultatif (hors ligne principale) */
+  optional?: boolean;
+  /** emplacement réservé : dialogue à déclencher (futur) */
+  dialogue?: string;
+  /** emplacement réservé : compagnon associé (futur) */
+  companion?: string;
 }
 
-const c = (g: Game, id: string) => g.stats.collected[id] ?? 0;
-const built = (g: Game, id: string) => (g.stats.built[id] ?? 0) > 0;
-const inBag = (g: Game, id: string) => countItem(g.player.inv, id);
-
-/** Nourriture disponible dans le sac (nombre de portions). */
-export function foodPortions(g: Game): number {
-  return g.player.inv.reduce((n, s) => n + (s && item(s.id).food ? s.qty : 0), 0);
-}
-
-export function hasWeapon(g: Game): boolean {
-  const e = g.player.equip;
-  const usable = (s: typeof e.weapon) => !!s && s.dur !== 0 && !!item(s.id).weapon;
-  return usable(e.weapon) || usable(e.tool) || g.player.inv.some((s) => usable(s) && item(s!.id).kind === 'weapon');
-}
-
-export function defensesCount(g: Game): number {
-  let n = 0;
-  for (const b of g.world.buildings.values()) if (b.type === 'palisade' || b.type === 'door' || b.type === 'spikes') n++;
-  return n;
-}
-
-/** Liste indicative de préparation à la nuit (non bloquante). */
-export function nightChecklist(g: Game): { label: string; done: boolean; optional?: boolean }[] {
-  return [
-    { label: 'Une arme en main (lance, hache ou massue)', done: hasWeapon(g) },
-    { label: `De quoi manger : ${Math.min(foodPortions(g), 3)}/3 portions`, done: foodPortions(g) >= 3 },
-    { label: 'Un feu de camp allumé', done: [...g.world.buildings.values()].some((b) => b.type === 'campfire') },
-    { label: `Quelques défenses : ${Math.min(defensesCount(g), 3)}/3 palissades, portes ou pieux`, done: defensesCount(g) >= 3, optional: true },
-  ];
-}
-
-const startChestOpened = (g: Game) => g.world.objects.some((o) => o.guaranteed === 'start_chest' && o.opened);
+const craftedGear = (g: Game) => Object.entries(g.stats.crafted).some(([id, n]) => n > 0 && ['weapon', 'armor', 'accessory'].includes(item(id).kind));
 
 export const OBJECTIVES: Objective[] = [
   {
-    id: 'o_chest',
-    intro: true,
-    title: 'Fouiller le coffre du camp',
-    hint: 'Le coffre est au bord de la clairière. Approchez-vous : le bouton d’action affiche « Fouiller ». Prenez tout.',
-    done: (g) => startChestOpened(g),
+    id: 'o_weapon', intro: true, title: 'Choisir une arme au râtelier',
+    hint: 'Le râtelier est à gauche du feu. Sept familles : dague, épée, masse, arc, arbalète, magie élémentaire, magie occulte. Vous pourrez fabriquer les autres et en changer à tout moment.',
+    done: (g) => !!g.starter,
   },
   {
-    id: 'o_note',
-    intro: true,
-    title: 'Lire le carnet du bûcheron',
-    hint: 'Une feuille traîne près du camp. Elle explique ce qui rôde ici la nuit.',
-    done: (g) => g.stats.notesRead.includes('n_camp'),
+    id: 'o_gear', intro: true, title: 'Prendre les provisions du coffre',
+    hint: 'Le coffre près de la maison contient des outils (hache, masse) et des vivres. Les outils servent depuis le sac : inutile de les tenir en main.',
+    done: (g) => ['stone_axe', 'stone_hammer', 'bread', 'bandage'].some((id) => countItem(g.player.inv, id) > 0),
   },
   {
-    id: 'o_gather',
-    intro: true,
-    title: 'Récolter du bois, de la pierre et des fibres',
-    hint: 'Touchez « Action » devant un arbre (Couper), un rocher (Miner) ou des herbes hautes (Arracher). Les ressources proches sont signalées.',
-    progress: (g) => `Bois ${Math.min(c(g, 'wood'), 3)}/3 · Pierre ${Math.min(c(g, 'stone'), 3)}/3 · Fibres ${Math.min(c(g, 'fiber'), 2)}/2`,
+    id: 'o_try', intro: true, title: 'Essayer les commandes sur le mannequin',
+    hint: 'Frappez le mannequin et utilisez une compétence (boutons ronds à côté de l’attaque). Le mannequin ne donne ni maîtrise ni charge d’ultime.',
     checklist: (g) => [
-      { label: `Bois récolté : ${Math.min(c(g, 'wood'), 3)}/3 (dans le sac : ${inBag(g, 'wood')})`, done: c(g, 'wood') >= 3 },
-      { label: `Pierre récoltée : ${Math.min(c(g, 'stone'), 3)}/3 (dans le sac : ${inBag(g, 'stone')})`, done: c(g, 'stone') >= 3 },
-      { label: `Fibres récoltées : ${Math.min(c(g, 'fiber'), 2)}/2 (dans le sac : ${inBag(g, 'fiber')})`, done: c(g, 'fiber') >= 2 },
+      { label: `Frapper le mannequin : ${Math.min(g.stats.dummyHits, 3)}/3`, done: g.stats.dummyHits >= 3 },
+      { label: 'Utiliser une compétence', done: g.stats.skillsUsed >= 1 },
     ],
-    done: (g) => c(g, 'wood') >= 3 && c(g, 'stone') >= 3 && c(g, 'fiber') >= 2,
+    progress: (g) => `Coups ${Math.min(g.stats.dummyHits, 3)}/3 · compétence ${g.stats.skillsUsed ? '✓' : '·'}`,
+    done: (g) => g.stats.dummyHits >= 3 && g.stats.skillsUsed >= 1,
   },
   {
-    id: 'o_tool',
-    intro: true,
-    title: 'Fabriquer un premier outil',
-    hint: 'Menu → Fabriquer : une hache de pierre coupe les arbres deux fois plus vite et sert d’arme ; une lance tient les zombies à distance.',
-    // quantités actuelles du sac (pas les quantités déjà récoltées) : pas d'ambiguïté après une dépense
-    progress: (g) => {
-      const need: [string, number][] = [['wood', 3], ['stone', 3], ['fiber', 2]];
-      const miss = need.filter(([id, n]) => inBag(g, id) < n);
-      return miss.length ? `Hache : il manque ${miss.map(([id, n]) => `${n - inBag(g, id)} ${item(id).name.toLowerCase()}`).join(', ')}` : 'Hache prête à fabriquer';
-    },
-    done: (g) => ['stone_axe', 'stone_hammer', 'spear'].some((id) => (g.stats.crafted[id] ?? 0) > 0),
+    id: 'o_outing', title: 'Partir au Bois des chasseurs',
+    hint: 'Le carrefour des expéditions est au sud du camp : touchez « Partir ». Le Bois est une région de ressources, en plein jour.',
+    done: (g) => g.stats.outings >= 1,
   },
   {
-    id: 'o_prepare',
-    intro: true,
-    title: 'Préparer la première nuit',
-    hint: 'Avant le crépuscule : une arme, de quoi manger et un feu de camp (Menu → Construire). Quelques palissades aident, sans être obligatoires.',
-    progress: (g) => {
-      const [arme, , feu] = nightChecklist(g);
-      return `Arme ${arme.done ? '✓' : '·'} · Repas ${Math.min(foodPortions(g), 3)}/3 · Feu ${feu.done ? '✓' : '·'}`;
-    },
-    checklist: (g) => nightChecklist(g),
-    done: (g) => nightChecklist(g).filter((x) => !x.optional).every((x) => x.done),
+    id: 'o_return', title: 'Récolter, puis rentrer au camp',
+    hint: 'Coupez du bois, cassez des pierres, chassez. Pour mettre votre récolte en sûreté, rentrez par le poteau de l’arrivée ou un point de halte. Une chute coûte 20 % de la récolte de la sortie.',
+    progress: (g) => `Bois ${Math.min(g.stats.collected.wood ?? 0, 5)}/5 · retour ${g.flags.has('first_return') ? '✓' : '·'}`,
+    done: (g) => g.flags.has('first_return') && (g.stats.collected.wood ?? 0) >= 5,
   },
   {
-    id: 'o_base',
-    title: 'Construire l’établi et un coffre',
-    hint: 'L’établi permet de faire des planches, nécessaires au coffre.',
-    progress: (g) => `Établi ${built(g, 'workbench') ? '✓' : '·'} · Coffre ${built(g, 'chest') ? '✓' : '·'}`,
-    done: (g) => built(g, 'workbench') && built(g, 'chest'),
+    id: 'o_upgrade', title: 'Améliorer votre équipement',
+    hint: 'Fabriquez une arme, une protection ou un accessoire (établi, forge). Au camp, la fabrication puise aussi dans vos coffres.',
+    done: (g) => craftedGear(g) || (g.stats.built.forge ?? 0) > 0,
   },
   {
-    id: 'o_night',
-    title: 'Préparer un abri et survivre à une nuit',
-    hint: 'Construisez une paillasse (point de réapparition) et quelques palissades, puis tenez jusqu’à l’aube.',
-    progress: (g) => `Paillasse ${built(g, 'bed') ? '✓' : '·'} · Nuits ${Math.min(g.stats.nightsSurvived, 1)}/1`,
-    checklist: (g) => [...nightChecklist(g), { label: 'Une paillasse (point de réapparition)', done: built(g, 'bed') }],
-    done: (g) => built(g, 'bed') && g.stats.nightsSurvived >= 1,
+    id: 'o_bastion', title: 'Explorer le Bastion abandonné',
+    hint: 'Première expédition principale : allumez les points de halte, cherchez comment ouvrir la herse de la cour.',
+    done: (g) => (g.levels.bastion?.status ?? 'new') !== 'new',
   },
   {
-    id: 'o_explore',
-    title: 'Explorer un lieu maudit',
-    hint: 'Suivez les chemins : ruines du hameau à l’est, cimetière à l’ouest, pierres noires au nord.',
-    done: (g) => g.stats.cursedVisited.length > 0,
+    id: 'o_chief', title: 'Vaincre le chef des mercenaires',
+    hint: 'Il attend dans la grande salle du donjon. Ses coups sont annoncés : esquivez, puis frappez pendant sa récupération.',
+    done: (g) => g.flags.has('boss_chief'),
   },
   {
-    id: 'o_fragments',
-    title: 'Récupérer les trois fragments du sceau',
-    hint: 'Un fragment repose dans chaque lieu maudit. Ils sont bien gardés : venez équipé.',
-    progress: (g) => `${g.fragmentsFound()}/3`,
-    done: (g) => g.fragmentsFound() >= 3 || g.final.state !== 'locked',
+    id: 'o_dungeon1', title: 'Réussir le premier palier du Bastion hanté',
+    hint: 'Le donjon se choisit au carrefour, palier par palier. Une défaite ne change jamais le palier.',
+    done: (g) => (g.dungeons.d_bastion?.cleared.length ?? 0) > 0,
   },
   {
-    id: 'o_restore',
-    title: 'Restaurer le sanctuaire du Loup',
-    hint: 'Le sanctuaire se trouve tout au nord. Déposez les fragments sur la pierre du loup.',
-    done: (g) => g.final.state !== 'locked',
+    id: 'o_worm', title: 'Vaincre la créature de la carrière',
+    hint: 'L’Ancienne carrière s’est ouverte. La créature dort au fond des galeries : un cercle au sol annonce son retour.',
+    done: (g) => g.flags.has('boss_worm'),
   },
   {
-    id: 'o_final',
-    title: 'Déclencher et repousser l’assaut final',
-    hint: 'Préparez des défenses autour du sanctuaire, puis lancez l’assaut depuis la pierre du loup. Trois vagues.',
-    progress: (g) => (g.final.state === 'active' ? `Vague ${g.final.wave + 1}/3` : ''),
-    done: (g) => g.final.state === 'won',
+    id: 'o_dungeon2', title: 'Réussir le premier palier des Profondeurs',
+    hint: 'Le second donjon reprend la carrière, plus dangereuse. Les paliers supérieurs donnent de meilleurs matériaux.',
+    done: (g) => (g.dungeons.d_carriere?.cleared.length ?? 0) > 0,
   },
+  // ---- facultatifs
+  { id: 'x_marais', optional: true, title: 'Explorer le Marais corrompu', hint: 'Matériaux d’enchantement et de potions. Les lanternes votives offrent un répit.', done: (g) => (g.stats.outings > 0 && g.levels.marais?.visited) === true },
+  { id: 'x_predator', optional: true, title: 'Vaincre le Prédateur du Bois', hint: 'Dans la tanière, au nord-est du Bois des chasseurs. Ses crocs servent aux armes de rang III.', done: (g) => g.flags.has('boss_predator') },
+  { id: 'x_enchant', optional: true, title: 'Graver un premier enchantement', hint: 'Construisez l’autel d’enchantement au camp.', done: (g) => [g.player.equip.weapon, g.player.equip.armor, g.player.equip.accessory, ...g.player.inv].some((s) => !!s?.ench) },
+  { id: 'x_mastery', optional: true, title: 'Atteindre la maîtrise 5 dans une famille', hint: 'La maîtrise vient des dégâts réellement infligés aux ennemis.', done: (g) => Object.values(g.mastery).some((xp) => xp >= 1350) },
 ];
-
-/** Anciens objectifs (sauvegardes v1) remplacés par l'introduction actuelle. */
-export const LEGACY_OBJECTIVES = ['o_food', 'o_fire'];
 
 export function evaluateObjectives(g: Game): string[] {
   const newly: string[] = [];
   for (const o of OBJECTIVES) {
-    if (g.completed.has(o.id)) continue;
+    if (o.optional || g.completed.has(o.id)) continue;
     if (o.done(g)) {
       g.completed.add(o.id);
       newly.push(o.id);
       continue;
     }
-    break; // on s'arrête au premier objectif non accompli
+    break; // ligne principale : on s'arrête au premier objectif non accompli
+  }
+  for (const o of OBJECTIVES) {
+    if (!o.optional || g.completed.has(o.id)) continue;
+    if (o.done(g)) {
+      g.completed.add(o.id);
+      newly.push(o.id);
+    }
   }
   return newly;
 }
 
 export function currentObjective(g: Game): Objective | null {
-  return OBJECTIVES.find((o) => !g.completed.has(o.id)) ?? null;
+  return OBJECTIVES.find((o) => !o.optional && !g.completed.has(o.id)) ?? null;
 }
 
 export function inIntro(g: Game): boolean {
   return !!currentObjective(g)?.intro;
 }
 
-/** Passe l'introduction : les étapes restantes sont considérées comme faites. */
+/** Passe le guidage : les étapes restantes sont considérées comme faites. */
 export function skipIntro(g: Game): void {
   g.tutorialSkipped = true;
   for (const o of OBJECTIVES) if (o.intro) g.completed.add(o.id);
+  if (!g.starter) g.flags.add('skip_starter');
 }
 
-/**
- * Cohérence après chargement : un objectif placé avant un objectif déjà accompli est
- * considéré comme fait (une ancienne partie ne refait pas l'introduction).
- */
+/** Après chargement : un objectif placé avant un objectif accompli est considéré comme fait. */
 export function normalizeObjectives(g: Game): void {
   let lastDone = -1;
   OBJECTIVES.forEach((o, i) => {
-    if (g.completed.has(o.id)) lastDone = i;
+    if (!o.optional && g.completed.has(o.id)) lastDone = i;
   });
-  // anciens objectifs de v1 : « manger » et « feu » équivalent à la fin de l'introduction
-  if (LEGACY_OBJECTIVES.some((id) => g.completed.has(id))) lastDone = Math.max(lastDone, OBJECTIVES.findIndex((o) => o.id === 'o_prepare'));
-  for (let i = 0; i <= lastDone; i++) g.completed.add(OBJECTIVES[i].id);
+  for (let i = 0; i <= lastDone; i++) if (!OBJECTIVES[i].optional) g.completed.add(OBJECTIVES[i].id);
 }
-
-export { FRAGMENTS };

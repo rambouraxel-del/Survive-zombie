@@ -1,9 +1,11 @@
-// Définitions des objets. `icon` = "<atlas>:<frame>" (voir public/assets/atlas).
+// Définitions des objets (V2). `icon` = "<atlas>:<frame>" (voir public/assets/atlas).
+// Les caractéristiques de combat des armes sont dans data/weapons.ts.
+import type { Family } from './weapons';
 
-export type ItemKind = 'resource' | 'food' | 'tool' | 'weapon' | 'armor' | 'consumable' | 'ammo' | 'quest';
-export type ToolType = 'axe' | 'pick' | 'light';
-export type EquipSlot = 'weapon' | 'tool' | 'armor';
-export type Station = 'hand' | 'workbench' | 'campfire' | 'forge';
+export type ItemKind = 'resource' | 'rare' | 'component' | 'food' | 'consumable' | 'tool' | 'weapon' | 'armor' | 'accessory';
+export type ToolType = 'axe' | 'pick';
+export type EquipSlot = 'weapon' | 'armor' | 'accessory';
+export type Station = 'hand' | 'workbench' | 'campfire' | 'forge' | 'enchanter';
 
 export interface FoodInfo {
   hunger: number;
@@ -12,14 +14,21 @@ export interface FoodInfo {
   note?: string;
 }
 
-export interface WeaponInfo {
-  damage: number;
-  reach: number; // portée en px depuis le joueur
-  cooldown: number;
-  stamina: number;
-  knockback: number;
-  ranged?: boolean;
-  anim: 'slash' | 'thrust' | 'shoot';
+export interface ConsumableInfo {
+  heal?: number; // PV rendus (sur `healTime` s)
+  healTime?: number;
+  restore?: boolean; // endurance et mana au maximum
+  regenBoost?: number; // bonus de récupération d'endurance/mana pendant 20 s
+  bomb?: { damage: number; radius: number; knockback: number };
+}
+
+export interface AccessoryInfo {
+  light?: number;
+  staminaRegen?: number; // +x (fraction)
+  manaRegen?: number;
+  damage?: number;
+  ultCharge?: number;
+  maxHp?: number;
 }
 
 export interface ItemDef {
@@ -29,65 +38,112 @@ export interface ItemDef {
   icon: string;
   kind: ItemKind;
   stack: number;
+  /** rang d'équipement (I, II, III) */
+  tier?: 1 | 2 | 3;
   food?: FoodInfo;
+  use?: ConsumableInfo;
   tool?: { type: ToolType; power: number };
-  weapon?: WeaponInfo;
+  weapon?: { family: Family };
   armor?: { reduction: number };
-  durability?: number;
-  heal?: number; // soin d'un consommable (bandage)
-  light?: number; // rayon de lumière si équipé
-  repair?: { station: Station; cost: Record<string, number> };
+  accessory?: AccessoryInfo;
   slot?: EquipSlot;
+  /** objet unique (jamais perdu, jamais dupliqué) */
+  unique?: boolean;
+  /** peut recevoir un enchantement */
+  enchantable?: boolean;
 }
 
+const W = (id: string, name: string, family: Family, tier: 1 | 2 | 3, icon: string, desc: string): ItemDef => ({
+  id, name, desc, icon, kind: 'weapon', slot: 'weapon', stack: 1, tier, weapon: { family }, enchantable: true, unique: tier === 3,
+});
+
 const defs: ItemDef[] = [
-  // Ressources
+  // ---------------------------------------------------------------- ressources ordinaires
   { id: 'wood', name: 'Bois', desc: 'Bûches tirées des arbres. Base de presque tout.', icon: 'world:i_wood', kind: 'resource', stack: 50 },
   { id: 'stone', name: 'Pierre', desc: 'Pierres ramassées sur les rochers.', icon: 'world:i_stone', kind: 'resource', stack: 50 },
   { id: 'fiber', name: 'Fibres', desc: 'Herbes hautes séchées. Sert aux liens et aux cordes.', icon: 'world:i_fiber', kind: 'resource', stack: 50 },
   { id: 'planks', name: 'Planches', desc: 'Bois équarri à l’établi.', icon: 'world:i_planks', kind: 'resource', stack: 40 },
   { id: 'rope', name: 'Corde', desc: 'Fibres tressées, solides.', icon: 'items:i_rope', kind: 'resource', stack: 20 },
   { id: 'iron_ore', name: 'Minerai de fer', desc: 'À fondre à la forge avec du charbon.', icon: 'world:i_iron_ore', kind: 'resource', stack: 30 },
-  { id: 'coal', name: 'Charbon', desc: 'Combustible de forge. Se trouve en filon ou se prépare au feu de camp.', icon: 'world:i_coal', kind: 'resource', stack: 30 },
+  { id: 'coal', name: 'Charbon', desc: 'Combustible de forge. En filon, ou préparé au feu de camp.', icon: 'world:i_coal', kind: 'resource', stack: 30 },
   { id: 'iron', name: 'Fer travaillé', desc: 'Lingot de fer prêt à être forgé.', icon: 'world:i_iron', kind: 'resource', stack: 20 },
-  { id: 'cloth', name: 'Tissu', desc: 'Étoffe récupérée dans les maisons et les caisses.', icon: 'world:i_cloth', kind: 'resource', stack: 20 },
-  { id: 'scrap', name: 'Ferraille', desc: 'Pièces de métal de récupération. Refondable à la forge.', icon: 'world:i_scrap', kind: 'resource', stack: 30 },
+  { id: 'cloth', name: 'Tissu', desc: 'Étoffe récupérée dans les caisses et les ruines.', icon: 'world:i_cloth', kind: 'resource', stack: 20 },
+  { id: 'scrap', name: 'Ferraille', desc: 'Métal de récupération. Refondable à la forge.', icon: 'world:i_scrap', kind: 'resource', stack: 30 },
+  { id: 'hide', name: 'Peau', desc: 'Peau de cerf ou de bête. Sert aux protections et aux arcs.', icon: 'items:i_leather', kind: 'resource', stack: 20 },
+  { id: 'herb', name: 'Herbe de soin', desc: 'Plante amère des sous-bois et des marais. Base des potions.', icon: 'items:i_herb', kind: 'resource', stack: 30 },
 
-  // Nourriture
+  // ---------------------------------------------------------------- matériaux rares
+  { id: 'pelt', name: 'Fourrure grise', desc: 'Fourrure épaisse des loups des cendres.', icon: 'items:i_trophy', kind: 'rare', stack: 20 },
+  { id: 'venom', name: 'Glande à venin', desc: 'Prélevée sur les renards corrompus. Poison et enchantements.', icon: 'items:i_potion_green', kind: 'rare', stack: 20 },
+  { id: 'blackmoss', name: 'Mousse noire', desc: 'Mousse qui ne pousse que dans l’eau morte du marais. Matériau d’enchantement.', icon: 'items:i_moss', kind: 'rare', stack: 30 },
+  { id: 'glowcap', name: 'Champignon luminescent', desc: 'Champignon pâle du marais. Potions de vigueur, enchantements.', icon: 'items:i_sprout', kind: 'rare', stack: 30 },
+  { id: 'wisp', name: 'Essence de feu follet', desc: 'Lueur recueillie sur les âmes corrompues. Rare.', icon: 'items:i_gem_white', kind: 'rare', stack: 20 },
+  { id: 'steel', name: 'Acier de rempart', desc: 'Acier trempé récupéré au bastion. Armes de rang II.', icon: 'items:i_gem_blue', kind: 'rare', stack: 20 },
+  { id: 'crystal', name: 'Cristal de carrière', desc: 'Cristal extrait des galeries profondes. Rang III et enchantements.', icon: 'items:i_gem_green', kind: 'rare', stack: 20 },
+  { id: 'ember', name: 'Braise éternelle', desc: 'Braise qui ne s’éteint jamais. Récompense des donjons.', icon: 'items:i_gem_red', kind: 'rare', stack: 20 },
+
+  // ---------------------------------------------------------------- composants de boss (garantis)
+  { id: 'pred_fang', name: 'Croc du Prédateur', desc: 'Arraché au prédateur corrompu du Bois des chasseurs (2 par victoire).', icon: 'items:i_claws', kind: 'component', stack: 10 },
+  { id: 'chief_insignia', name: 'Insigne du capitaine', desc: 'Insignes du chef des mercenaires du bastion (3 par victoire).', icon: 'items:i_banner', kind: 'component', stack: 10 },
+  { id: 'worm_plate', name: 'Carapace du ver', desc: 'Plaques de la créature de la carrière (3 par victoire).', icon: 'items:i_skull_green', kind: 'component', stack: 10 },
+
+  // ---------------------------------------------------------------- nourriture
   { id: 'berries', name: 'Myrtilles', desc: 'Se mangent crues.', icon: 'world:i_berries', kind: 'food', stack: 20, food: { hunger: 9 } },
-  { id: 'morel', name: 'Morille', desc: 'Champignon comestible, reconnaissable à son chapeau alvéolé.', icon: 'world:i_morel', kind: 'food', stack: 20, food: { hunger: 7 } },
-  { id: 'meat_raw', name: 'Viande crue', desc: 'Prise au piège. Peu nourrissante crue : mieux vaut la cuire.', icon: 'world:i_meat_raw', kind: 'food', stack: 10, food: { hunger: 6, note: 'Crue : peu nourrissante' } },
-  { id: 'meat_cooked', name: 'Viande rôtie', desc: 'Cuite au feu de camp.', icon: 'world:i_meat_cooked', kind: 'food', stack: 10, food: { hunger: 30, health: 6 } },
-  { id: 'skewer', name: 'Brochette de morilles', desc: 'Morilles grillées au feu.', icon: 'world:i_skewer', kind: 'food', stack: 10, food: { hunger: 22, health: 3 } },
-  { id: 'stew', name: 'Ragoût du forestier', desc: 'Repas complet : nourrit, soigne et aide à récupérer.', icon: 'world:i_stew', kind: 'food', stack: 5, food: { hunger: 55, health: 15, regen: 0.8 } },
-  { id: 'bread', name: 'Pain de route', desc: 'Pain sec et dur qui se conserve.', icon: 'items:i_bread', kind: 'food', stack: 10, food: { hunger: 24 } },
-  { id: 'jerky', name: 'Viande séchée', desc: 'Provision de voyage retrouvée.', icon: 'world:i_jerky', kind: 'food', stack: 10, food: { hunger: 20 } },
+  { id: 'morel', name: 'Morille', desc: 'Champignon comestible au chapeau alvéolé.', icon: 'world:i_morel', kind: 'food', stack: 20, food: { hunger: 7 } },
+  { id: 'meat_raw', name: 'Viande crue', desc: 'Peu nourrissante crue : mieux vaut la cuire.', icon: 'world:i_meat_raw', kind: 'food', stack: 10, food: { hunger: 6, note: 'Crue : peu nourrissante' } },
+  { id: 'meat_cooked', name: 'Viande rôtie', desc: 'Cuite sur le feu du camp.', icon: 'world:i_meat_cooked', kind: 'food', stack: 10, food: { hunger: 30, health: 8 } },
+  { id: 'skewer', name: 'Brochette de morilles', desc: 'Morilles grillées.', icon: 'world:i_skewer', kind: 'food', stack: 10, food: { hunger: 22, health: 4 } },
+  { id: 'stew', name: 'Ragoût du forestier', desc: 'Repas complet : nourrit, soigne et aide à récupérer.', icon: 'world:i_stew', kind: 'food', stack: 5, food: { hunger: 55, health: 20, regen: 0.8 } },
+  { id: 'bread', name: 'Pain de route', desc: 'Pain dur qui se conserve.', icon: 'items:i_bread', kind: 'food', stack: 10, food: { hunger: 24 } },
+  { id: 'jerky', name: 'Viande séchée', desc: 'Provision de voyage.', icon: 'world:i_jerky', kind: 'food', stack: 10, food: { hunger: 20 } },
 
-  // Consommables
-  { id: 'bandage', name: 'Bandage', desc: 'Rend 30 PV en quelques secondes.', icon: 'world:i_bandage', kind: 'consumable', stack: 10, heal: 30 },
-  { id: 'arrow', name: 'Flèche', desc: 'Munition pour l’arc.', icon: 'items:i_arrow', kind: 'ammo', stack: 40 },
+  // ---------------------------------------------------------------- consommables
+  { id: 'bandage', name: 'Bandage', desc: 'Rend 30 PV en 4 secondes.', icon: 'world:i_bandage', kind: 'consumable', stack: 10, use: { heal: 30, healTime: 4 } },
+  { id: 'potion_heal', name: 'Potion de soin', desc: 'Rend 55 PV en 1,5 seconde.', icon: 'items:i_potion_red', kind: 'consumable', stack: 5, use: { heal: 55, healTime: 1.5 } },
+  { id: 'potion_vigor', name: 'Potion de vigueur', desc: 'Endurance et mana au maximum, récupération accrue 20 s.', icon: 'items:i_potion_blue', kind: 'consumable', stack: 5, use: { restore: true, regenBoost: 0.6 } },
+  { id: 'bomb', name: 'Bombe artisanale', desc: 'Lancée devant vous : 45 dégâts autour du point d’impact et fort recul.', icon: 'items:i_bomb', kind: 'consumable', stack: 5, use: { bomb: { damage: 45, radius: 58, knockback: 260 } } },
 
-  // Outils
-  { id: 'stone_axe', name: 'Hache de pierre', desc: 'Abat les arbres deux fois plus vite qu’à mains nues.', icon: 'items:i_axe_stone', kind: 'tool', slot: 'tool', stack: 1, tool: { type: 'axe', power: 2 }, durability: 70, weapon: { damage: 7, reach: 36, cooldown: 0.5, stamina: 10, knockback: 90, anim: 'slash' }, repair: { station: 'workbench', cost: { wood: 1, stone: 2 } } },
-  { id: 'stone_hammer', name: 'Masse de carrier', desc: 'Casse la roche et extrait le minerai.', icon: 'items:i_hammer_big', kind: 'tool', slot: 'tool', stack: 1, tool: { type: 'pick', power: 2 }, durability: 70, weapon: { damage: 7, reach: 36, cooldown: 0.55, stamina: 11, knockback: 110, anim: 'slash' }, repair: { station: 'workbench', cost: { wood: 1, stone: 2 } } },
-  { id: 'iron_axe', name: 'Hache de fer', desc: 'Abat les arbres très rapidement.', icon: 'items:i_axe_iron', kind: 'tool', slot: 'tool', stack: 1, tool: { type: 'axe', power: 3 }, durability: 160, weapon: { damage: 12, reach: 38, cooldown: 0.5, stamina: 10, knockback: 110, anim: 'slash' }, repair: { station: 'forge', cost: { iron: 1 } } },
-  { id: 'iron_pick', name: 'Pioche de fer', desc: 'Extrait pierre et minerai très rapidement.', icon: 'items:i_pick_iron', kind: 'tool', slot: 'tool', stack: 1, tool: { type: 'pick', power: 3 }, durability: 160, weapon: { damage: 10, reach: 38, cooldown: 0.55, stamina: 11, knockback: 110, anim: 'slash' }, repair: { station: 'forge', cost: { iron: 1 } } },
-  { id: 'torch', name: 'Torche', desc: 'Éclaire autour de vous tant qu’elle est équipée comme outil. Brûle la nuit.', icon: 'items:i_torch', kind: 'tool', slot: 'tool', stack: 1, tool: { type: 'light', power: 0 }, durability: 300, light: 170 },
+  // ---------------------------------------------------------------- outils (utilisés automatiquement pour récolter)
+  { id: 'stone_axe', name: 'Hache de pierre', desc: 'Coupe les arbres deux fois plus vite (utilisée depuis le sac).', icon: 'items:i_axe_stone', kind: 'tool', stack: 1, tool: { type: 'axe', power: 2 } },
+  { id: 'stone_hammer', name: 'Masse de carrier', desc: 'Casse la roche et extrait le minerai (utilisée depuis le sac).', icon: 'items:i_hammer_big', kind: 'tool', stack: 1, tool: { type: 'pick', power: 2 } },
+  { id: 'iron_axe', name: 'Hache de fer', desc: 'Coupe les arbres très rapidement.', icon: 'items:i_axe_iron', kind: 'tool', stack: 1, tool: { type: 'axe', power: 3 } },
+  { id: 'iron_pick', name: 'Pioche de fer', desc: 'Extrait pierre, minerai et cristal rapidement.', icon: 'items:i_pick_iron', kind: 'tool', stack: 1, tool: { type: 'pick', power: 3 } },
 
-  // Armes
-  { id: 'spear', name: 'Lance en bois', desc: 'Longue allonge : frappe avant d’être touché.', icon: 'items:i_spear', kind: 'weapon', slot: 'weapon', stack: 1, durability: 90, weapon: { damage: 11, reach: 52, cooldown: 0.55, stamina: 11, knockback: 120, anim: 'thrust' }, repair: { station: 'workbench', cost: { wood: 2 } } },
-  { id: 'club', name: 'Massue renforcée', desc: 'Lourde, repousse fortement les ennemis.', icon: 'items:i_club', kind: 'weapon', slot: 'weapon', stack: 1, durability: 120, weapon: { damage: 15, reach: 38, cooldown: 0.65, stamina: 14, knockback: 190, anim: 'slash' }, repair: { station: 'workbench', cost: { wood: 2, stone: 1 } } },
-  { id: 'sword', name: 'Épée', desc: 'Arme forgée, rapide et puissante.', icon: 'items:i_sword', kind: 'weapon', slot: 'weapon', stack: 1, durability: 220, weapon: { damage: 22, reach: 42, cooldown: 0.42, stamina: 10, knockback: 140, anim: 'slash' }, repair: { station: 'forge', cost: { iron: 1 } } },
-  { id: 'bow', name: 'Arc', desc: 'Tire des flèches sur la cible la plus proche. Nécessite des flèches.', icon: 'items:i_bow', kind: 'weapon', slot: 'weapon', stack: 1, durability: 140, weapon: { damage: 16, reach: 300, cooldown: 0.7, stamina: 8, knockback: 80, ranged: true, anim: 'shoot' }, repair: { station: 'workbench', cost: { planks: 1, rope: 1 } } },
+  // ---------------------------------------------------------------- armes : 7 familles × 3 rangs
+  W('dagger_1', 'Couteau de chasse', 'dagger', 1, 'items:i_knife', 'Lame courte et vive.'),
+  W('dagger_2', 'Dague d’acier', 'dagger', 2, 'items:i_dagger', 'Dague équilibrée, trempée au bastion.'),
+  W('dagger_3', 'Croc du Prédateur', 'dagger', 3, 'items:i_dagger_red', 'Lame taillée dans le croc du prédateur corrompu.'),
+  W('sword_1', 'Épée d’armes', 'sword', 1, 'items:i_sword', 'Épée droite à une main.'),
+  W('sword_2', 'Épée longue', 'sword', 2, 'items:i_longsword', 'Longue lame, à une ou deux mains.'),
+  W('sword_3', 'Lame du capitaine', 'sword', 3, 'items:i_flamesword', 'L’épée reforgée du chef des mercenaires.'),
+  W('mace_1', 'Massue cloutée', 'mace', 1, 'items:i_club', 'Lourde, repousse fortement.'),
+  W('mace_2', 'Hache de guerre', 'mace', 2, 'items:i_waraxe', 'Tranchant massif qui brise les gardes.'),
+  W('mace_3', 'Marteau du carrier', 'mace', 3, 'items:i_warhammer', 'Masse cerclée de la carapace du ver.'),
+  W('bow_1', 'Arc de chasse', 'bow', 1, 'items:i_bow', 'Arc court et précis. Pas de flèches à fabriquer : seulement de l’endurance.'),
+  W('bow_2', 'Arc long', 'bow', 2, 'items:i_longbow', 'Grande allonge, flèches plus lourdes.'),
+  W('bow_3', 'Arc en croc', 'bow', 3, 'items:i_longbow', 'Arc renforcé du croc du prédateur.'),
+  W('xbow_1', 'Arbalète légère', 'crossbow', 1, 'items:i_crossbow', 'Carreaux puissants ; rechargement après chaque tir.'),
+  W('xbow_2', 'Arbalète de rempart', 'crossbow', 2, 'items:i_crossbow', 'Arbalète lourde des murailles.'),
+  W('xbow_3', 'Arbalète du capitaine', 'crossbow', 3, 'items:i_crossbow', 'Arbalète à cranequin du chef mercenaire.'),
+  W('staff_1', 'Bâton de braise', 'elemental', 1, 'items:i_scepter_silver', 'Canalise le feu, la glace et la pierre (mana).'),
+  W('staff_2', 'Bâton des trois éléments', 'elemental', 2, 'items:i_scepter_silver', 'Focalise mieux les éléments.'),
+  W('staff_3', 'Bâton de cœur-de-pierre', 'elemental', 3, 'items:i_scepter_red', 'Serti d’un éclat de carapace du ver : les éléments grondent.'),
+  W('occ_1', 'Grimoire cendré', 'occult', 1, 'items:i_book_dark', 'Pages noircies : projectiles d’ombre et malédictions (mana).'),
+  W('occ_2', 'Fétiche des marais', 'occult', 2, 'items:i_book_dark', 'Relié de mousse noire.'),
+  W('occ_3', 'Grimoire du ver', 'occult', 3, 'items:i_book_red', 'Ce qui dormait sous la carrière y a laissé sa marque.'),
 
-  // Protections
-  { id: 'gambison', name: 'Gambison', desc: 'Veste matelassée : réduit les dégâts de 25 %.', icon: 'items:i_armor_light', kind: 'armor', slot: 'armor', stack: 1, armor: { reduction: 0.25 }, durability: 160, repair: { station: 'workbench', cost: { cloth: 1 } } },
-  { id: 'brigandine', name: 'Brigandine', desc: 'Protection renforcée de fer : réduit les dégâts de 45 %.', icon: 'items:i_armor_iron', kind: 'armor', slot: 'armor', stack: 1, armor: { reduction: 0.45 }, durability: 260, repair: { station: 'forge', cost: { iron: 1 } } },
+  // ---------------------------------------------------------------- protections
+  { id: 'gambison', name: 'Gambison', desc: 'Veste matelassée : dégâts subis −15 %.', icon: 'items:i_armor_light', kind: 'armor', slot: 'armor', stack: 1, tier: 1, armor: { reduction: 0.15 }, enchantable: true },
+  { id: 'chainmail', name: 'Cotte de mailles', desc: 'Anneaux de fer rivetés : dégâts subis −25 %.', icon: 'items:i_armor_iron', kind: 'armor', slot: 'armor', stack: 1, tier: 2, armor: { reduction: 0.25 }, enchantable: true },
+  { id: 'brigandine', name: 'Brigandine', desc: 'Plaques rivetées sur cuir épais : dégâts subis −35 %.', icon: 'items:i_armor_plate', kind: 'armor', slot: 'armor', stack: 1, tier: 3, armor: { reduction: 0.35 }, enchantable: true },
 
-  // Quête
-  { id: 'frag_1', name: 'Fragment du Hameau', desc: 'Premier fragment du sceau. Objet de quête : il ne peut être ni perdu ni jeté.', icon: 'items:i_frag_1', kind: 'quest', stack: 1 },
-  { id: 'frag_2', name: 'Fragment de la Crypte', desc: 'Deuxième fragment du sceau. Objet de quête : il ne peut être ni perdu ni jeté.', icon: 'items:i_frag_2', kind: 'quest', stack: 1 },
-  { id: 'frag_3', name: 'Fragment des Pierres noires', desc: 'Troisième fragment du sceau. Objet de quête : il ne peut être ni perdu ni jeté.', icon: 'items:i_frag_3', kind: 'quest', stack: 1 },
+  // ---------------------------------------------------------------- accessoires
+  { id: 'torch', name: 'Torche de ceinture', desc: 'Éclaire autour de vous dans les lieux sombres.', icon: 'items:i_torch', kind: 'accessory', slot: 'accessory', stack: 1, accessory: { light: 170 }, enchantable: true },
+  { id: 'acc_vigor', name: 'Amulette de vigueur', desc: 'Récupération d’endurance +20 %.', icon: 'items:i_amulet_red', kind: 'accessory', slot: 'accessory', stack: 1, accessory: { staminaRegen: 0.2 }, enchantable: true },
+  { id: 'acc_focus', name: 'Anneau de concentration', desc: 'Récupération de mana +20 %.', icon: 'items:i_ring', kind: 'accessory', slot: 'accessory', stack: 1, accessory: { manaRegen: 0.2 }, enchantable: true },
+  { id: 'acc_fangs', name: 'Collier de crocs', desc: 'Dégâts +5 %.', icon: 'items:i_trophy', kind: 'accessory', slot: 'accessory', stack: 1, accessory: { damage: 0.05 }, enchantable: true },
+  { id: 'acc_relic', name: 'Relique du rempart', desc: 'Trouvaille exceptionnelle des souterrains : charge de l’ultime +10 %, PV max +10.', icon: 'items:i_amulet_purple', kind: 'accessory', slot: 'accessory', stack: 1, unique: true, accessory: { ultCharge: 0.1, maxHp: 10 }, enchantable: true },
+  { id: 'acc_geode', name: 'Géode vivante', desc: 'Trouvaille exceptionnelle des galeries : mana et endurance +12 %, PV max +10.', icon: 'items:i_amulet_blue', kind: 'accessory', slot: 'accessory', stack: 1, unique: true, accessory: { manaRegen: 0.12, staminaRegen: 0.12, maxHp: 10 }, enchantable: true },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(defs.map((d) => [d.id, d]));
@@ -98,4 +154,10 @@ export function item(id: string): ItemDef {
   return d;
 }
 
-export const FRAGMENTS = ['frag_1', 'frag_2', 'frag_3'];
+export const TIER_LABEL: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III' };
+
+/** Ressources de sortie : récoltées ou ramassées en expédition, concernées par la perte de 20 %. */
+export function isFarmResource(id: string): boolean {
+  const k = ITEMS[id]?.kind;
+  return k === 'resource' || k === 'rare' || k === 'food';
+}

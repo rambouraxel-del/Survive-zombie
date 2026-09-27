@@ -1,24 +1,20 @@
+// Monde d'une carte (camp, maison, région ou donjon) : terrain, obstacles, objets, constructions.
 import { TILE } from '../config/balance';
 import { BUILDING_BY_ID } from '../data/buildings';
 import type { Slots } from '../sim/inventory';
-
-export type Zone = 'start' | 'forest' | 'hamlet' | 'cemetery' | 'corrupt' | 'sanctuary';
-export const ZONES: Zone[] = ['start', 'forest', 'hamlet', 'cemetery', 'corrupt', 'sanctuary'];
-export const ZONE_NAMES: Record<Zone, string> = {
-  start: 'Clairière du camp',
-  forest: 'Forêt et vieux chemins',
-  hamlet: 'Ruines du hameau',
-  cemetery: 'Cimetière',
-  corrupt: 'Bois corrompus',
-  sanctuary: 'Sanctuaire du Loup',
-};
+import type { AreaDef, MapDef } from '../maps/types';
 
 export type ObjType =
-  | 'tree' | 'rock' | 'ore_iron' | 'ore_coal' | 'bush' | 'grass' | 'morel'
-  | 'decor' | 'container' | 'note' | 'altar' | 'sanctuary' | 'house';
+  | 'tree' | 'rock' | 'ore_iron' | 'ore_coal' | 'crystal' | 'bush' | 'grass' | 'morel' | 'herb' | 'blackmoss' | 'glowcap'
+  | 'decor' | 'prop' | 'container' | 'note' | 'checkpoint' | 'exit' | 'gate' | 'lever' | 'barricade' | 'shortcut'
+  | 'house' | 'door' | 'travel' | 'rack' | 'reserved' | 'lodge' | 'mound';
+
+export const HARVEST_TYPES: ObjType[] = ['tree', 'rock', 'ore_iron', 'ore_coal', 'crystal', 'bush', 'grass', 'morel', 'herb', 'blackmoss', 'glowcap'];
 
 export interface WObj {
   id: number;
+  /** identifiant stable (coffres, leviers, portes, points de halte…) ; les ressources : « x,y » */
+  key: string;
   type: ObjType;
   fx: number; // empreinte (tuiles)
   fy: number;
@@ -26,21 +22,29 @@ export interface WObj {
   fh: number;
   sprite: string; // "atlas:frame"
   solid: boolean;
-  zone: Zone;
   hp?: number;
   maxHp?: number;
   depleted?: boolean;
-  regrowAt?: number;
   loot?: string;
-  guaranteed?: string;
+  renew?: boolean; // coffre renouvelé à chaque sortie
   items?: Slots | null; // null = pas encore ouvert
   opened?: boolean;
   noteId?: string;
-  frag?: string;
-  taken?: boolean;
   label?: string;
-  removed?: boolean; // retiré pendant la génération (corridor de secours)
-  occluder?: boolean; // peut masquer le joueur (arbres, maisons)
+  occluder?: boolean;
+  flat?: boolean;
+  light?: number;
+  /** porte, herse, raccourci : ouvert */
+  open?: boolean;
+  /** levier : identifiant de la porte actionnée ; raccourci : côté d'où on l'active */
+  target?: string;
+  side?: 'north' | 'south' | 'east' | 'west';
+  /** raccourci : cases d'eau ou de mur rendues praticables à l'ouverture */
+  cells?: { x: number; y: number }[];
+  votive?: boolean;
+  /** porte ouverte par la mort du boss / de l'intérieur */
+  openedBy?: 'lever' | 'boss' | 'inside';
+  destination?: string;
 }
 
 export interface Building {
@@ -48,7 +52,6 @@ export interface Building {
   type: string;
   x: number; // tuile en haut à gauche
   y: number;
-  hp: number;
   level?: number; // 2 = amélioré
   items?: Slots;
   meat?: number;
@@ -60,7 +63,7 @@ export interface Bag {
   x: number; // px
   y: number;
   items: Slots;
-  kind: 'death' | 'chest' | 'drop';
+  kind: 'drop' | 'loot';
 }
 
 export interface Landmark {
@@ -70,10 +73,6 @@ export interface Landmark {
   y: number;
   icon: string;
   discovered: boolean;
-  /** petite scène d'exploration (nouvelles parties) : distance de découverte réduite */
-  scene?: boolean;
-  /** zombies qui gardent le meilleur butin de la scène (apparaissent à l'approche) */
-  guards?: ('rodeur' | 'affame' | 'brute')[];
 }
 
 export const FOG_CELL = 4; // tuiles par cellule de brouillard
@@ -81,14 +80,20 @@ export const FOG_CELL = 4; // tuiles par cellule de brouillard
 export class World {
   readonly w: number;
   readonly h: number;
+  readonly def: MapDef;
   seed: number;
   ground: Uint8Array; // sommets (w+1)*(h+1) : 1 = herbe, 0 = terre
   palette: Uint8Array; // par tuile : 0 été, 1 automne
-  zone: Uint8Array; // index dans ZONES
-  road: Uint8Array;
-  reserved: Uint8Array; // zones critiques (pas de construction)
+  water: Uint8Array;
+  bridge: Uint8Array;
+  wall: Uint8Array; // 1 = mur avec face, 2 = dessus de mur seul
+  floor: Uint8Array; // 0 aucun, 1 pavés, 2 plancher
+  area: Uint8Array; // index de zone + 1
+  cave: Uint8Array;
+  reserved: Uint8Array; // pas de construction
   objects: WObj[] = [];
-  objAt: Int32Array; // objet occupant la tuile (empreinte), -1 sinon
+  objAt: Int32Array;
+  byKey = new Map<string, WObj>();
   buildings = new Map<number, Building>();
   buildingAt: Int32Array;
   nextBuildingId = 1;
@@ -97,25 +102,31 @@ export class World {
   fog: Uint8Array;
   landmarks: Landmark[] = [];
   start = { x: 0, y: 0 };
-  sanctuaryId = -1;
-  /** version du générateur (1 = mondes d'origine, 2 = avec scènes d'exploration) */
-  genVersion = 1;
-  outsideDirty = true;
-  private outside: Uint8Array | null = null;
-  buildVersion = 0; // incrémenté à chaque pose/retrait (invalide les chemins)
+  buildVersion = 0;
+  /** incrémenté quand un obstacle change (portes, raccourcis) : invalide les chemins */
+  version = 0;
 
-  constructor(w: number, h: number, seed: number) {
+  constructor(def: MapDef, w: number, h: number, seed: number) {
+    this.def = def;
     this.w = w;
     this.h = h;
     this.seed = seed;
     this.ground = new Uint8Array((w + 1) * (h + 1)).fill(1);
     this.palette = new Uint8Array(w * h);
-    this.zone = new Uint8Array(w * h);
-    this.road = new Uint8Array(w * h);
+    this.water = new Uint8Array(w * h);
+    this.bridge = new Uint8Array(w * h);
+    this.wall = new Uint8Array(w * h);
+    this.floor = new Uint8Array(w * h);
+    this.area = new Uint8Array(w * h);
+    this.cave = new Uint8Array(w * h);
     this.reserved = new Uint8Array(w * h);
     this.objAt = new Int32Array(w * h).fill(-1);
     this.buildingAt = new Int32Array(w * h).fill(-1);
     this.fog = new Uint8Array(Math.ceil(w / FOG_CELL) * Math.ceil(h / FOG_CELL));
+  }
+
+  get id(): string {
+    return this.def.id;
   }
 
   inBounds(tx: number, ty: number): boolean {
@@ -126,9 +137,14 @@ export class World {
     return ty * this.w + tx;
   }
 
-  zoneAt(tx: number, ty: number): Zone {
-    if (!this.inBounds(tx, ty)) return 'forest';
-    return ZONES[this.zone[this.idx(tx, ty)]];
+  areaAt(tx: number, ty: number): AreaDef | null {
+    if (!this.inBounds(tx, ty)) return null;
+    const a = this.area[this.idx(tx, ty)];
+    return a ? this.def.areas[a - 1] : null;
+  }
+
+  isCave(tx: number, ty: number): boolean {
+    return this.inBounds(tx, ty) && this.cave[this.idx(tx, ty)] === 1;
   }
 
   vertex(vx: number, vy: number): number {
@@ -154,11 +170,19 @@ export class World {
     return id >= 0 ? this.buildings.get(id) ?? null : null;
   }
 
-  /** Obstacle statique (arbre, rocher, maison…). */
-  staticSolid(tx: number, ty: number): boolean {
+  /** Terrain infranchissable : mur, falaise, eau (hors pont). */
+  terrainBlocked(tx: number, ty: number): boolean {
     if (!this.inBounds(tx, ty)) return true;
+    const i = this.idx(tx, ty);
+    if (this.wall[i]) return true;
+    return this.water[i] === 1 && this.bridge[i] === 0;
+  }
+
+  /** Obstacle statique (terrain ou objet solide). */
+  staticSolid(tx: number, ty: number): boolean {
+    if (this.terrainBlocked(tx, ty)) return true;
     const o = this.objectAtTile(tx, ty);
-    return !!o && o.solid && !o.removed;
+    return !!o && o.solid;
   }
 
   passableForPlayer(tx: number, ty: number): boolean {
@@ -171,20 +195,30 @@ export class World {
 
   passableForEnemy(tx: number, ty: number): boolean {
     if (this.staticSolid(tx, ty)) return false;
-    const b = this.buildingAtTile(tx, ty);
-    return !b || !BUILDING_BY_ID[b.type].blocks;
+    return !this.buildingAtTile(tx, ty);
+  }
+
+  /** Bloque la vue et les projectiles : murs, grands objets solides (pas l'eau). */
+  blocksSight(tx: number, ty: number): boolean {
+    if (!this.inBounds(tx, ty)) return true;
+    const i = this.idx(tx, ty);
+    if (this.wall[i]) return true;
+    const o = this.objectAtTile(tx, ty);
+    if (!o || !o.solid) return false;
+    return o.type === 'tree' || o.type === 'house' || o.type === 'lodge' || o.type === 'gate' || o.type === 'rock' || o.type === 'barricade' || (o.type === 'prop' && o.fh >= 2) || o.type === 'shortcut';
   }
 
   registerObject(o: WObj): void {
     o.id = this.objects.length;
     this.objects.push(o);
+    if (o.key) this.byKey.set(o.key, o);
     this.stampObject(o);
   }
 
   stampObject(o: WObj): void {
     for (let y = o.fy; y < o.fy + o.fh; y++)
       for (let x = o.fx; x < o.fx + o.fw; x++)
-        if (this.inBounds(x, y)) this.objAt[this.idx(x, y)] = o.removed ? -1 : o.id;
+        if (this.inBounds(x, y)) this.objAt[this.idx(x, y)] = o.id;
   }
 
   unstampObject(o: WObj): void {
@@ -193,9 +227,9 @@ export class World {
         if (this.inBounds(x, y) && this.objAt[this.idx(x, y)] === o.id) this.objAt[this.idx(x, y)] = -1;
   }
 
-  addBuilding(type: string, x: number, y: number, hp?: number, id?: number): Building {
+  addBuilding(type: string, x: number, y: number, id?: number): Building {
     const d = BUILDING_BY_ID[type];
-    const b: Building = { id: id ?? this.nextBuildingId++, type, x, y, hp: hp ?? d.hp };
+    const b: Building = { id: id ?? this.nextBuildingId++, type, x, y };
     if (id !== undefined) this.nextBuildingId = Math.max(this.nextBuildingId, id + 1);
     if (d.storage) b.items = Array.from({ length: d.storage }, () => null);
     if (type === 'trap') {
@@ -203,22 +237,29 @@ export class World {
       b.trapTimer = 0;
     }
     this.buildings.set(b.id, b);
-    for (let yy = y; yy < y + d.h; yy++) for (let xx = x; xx < x + d.w; xx++) this.buildingAt[this.idx(xx, yy)] = b.id;
-    this.outsideDirty = true;
-    this.buildVersion++;
+    this.stampBuilding(b);
     return b;
+  }
+
+  stampBuilding(b: Building): void {
+    const d = BUILDING_BY_ID[b.type];
+    for (let yy = b.y; yy < b.y + d.h; yy++) for (let xx = b.x; xx < b.x + d.w; xx++) if (this.inBounds(xx, yy)) this.buildingAt[this.idx(xx, yy)] = b.id;
+    this.buildVersion++;
+  }
+
+  unstampBuilding(b: Building): void {
+    const d = BUILDING_BY_ID[b.type];
+    for (let yy = b.y; yy < b.y + d.h; yy++)
+      for (let xx = b.x; xx < b.x + d.w; xx++)
+        if (this.inBounds(xx, yy) && this.buildingAt[this.idx(xx, yy)] === b.id) this.buildingAt[this.idx(xx, yy)] = -1;
+    this.buildVersion++;
   }
 
   removeBuilding(id: number): Building | null {
     const b = this.buildings.get(id);
     if (!b) return null;
-    const d = BUILDING_BY_ID[b.type];
-    for (let yy = b.y; yy < b.y + d.h; yy++)
-      for (let xx = b.x; xx < b.x + d.w; xx++)
-        if (this.buildingAt[this.idx(xx, yy)] === id) this.buildingAt[this.idx(xx, yy)] = -1;
+    this.unstampBuilding(b);
     this.buildings.delete(id);
-    this.outsideDirty = true;
-    this.buildVersion++;
     return b;
   }
 
@@ -231,41 +272,6 @@ export class World {
     const bag: Bag = { id: this.nextBagId++, x, y, items, kind };
     this.bags.set(bag.id, bag);
     return bag;
-  }
-
-  /** Tuiles reliées au bord de la carte sans traverser d'obstacle ni de construction bloquante. */
-  outsideMask(): Uint8Array {
-    if (this.outside && !this.outsideDirty) return this.outside;
-    const out = new Uint8Array(this.w * this.h);
-    const q = new Int32Array(this.w * this.h);
-    let qh = 0;
-    let qt = 0;
-    const push = (x: number, y: number) => {
-      const i = this.idx(x, y);
-      if (out[i] || !this.passableForEnemy(x, y)) return;
-      out[i] = 1;
-      q[qt++] = i;
-    };
-    for (let x = 0; x < this.w; x++) {
-      push(x, 0);
-      push(x, this.h - 1);
-    }
-    for (let y = 0; y < this.h; y++) {
-      push(0, y);
-      push(this.w - 1, y);
-    }
-    while (qh < qt) {
-      const i = q[qh++];
-      const x = i % this.w;
-      const y = (i - x) / this.w;
-      if (x > 0) push(x - 1, y);
-      if (x < this.w - 1) push(x + 1, y);
-      if (y > 0) push(x, y - 1);
-      if (y < this.h - 1) push(x, y + 1);
-    }
-    this.outside = out;
-    this.outsideDirty = false;
-    return out;
   }
 
   discover(px: number, py: number, radiusTiles: number): boolean {

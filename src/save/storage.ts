@@ -1,6 +1,7 @@
 // Stockage local : IndexedDB en priorité, localStorage en secours.
-// Deux emplacements : « current » et « backup » (dernière sauvegarde valide précédente).
-import { validateSave, type SaveData } from './serialize';
+// Emplacements : « current », « backup » (dernière sauvegarde valide précédente) et
+// « legacy » : copie intacte d'une sauvegarde de l'ancienne version, jamais écrasée.
+import { isLegacy, validateSave, type SaveData } from './serialize';
 
 const DB = 'bois-de-cendre';
 const STORE = 'saves';
@@ -111,18 +112,51 @@ export async function writeSave(data: SaveData): Promise<SaveResult> {
 export interface LoadResult {
   data?: SaveData;
   usedBackup?: boolean;
+  /** la sauvegarde venait de l'ancienne version : ses possessions ont été importées */
+  migrated?: boolean;
   error?: string;
+}
+
+async function put(key: string, value: unknown): Promise<void> {
+  try {
+    await idbPut(key, value);
+  } catch {
+    lsPut(key, value);
+  }
+}
+
+/** Conserve une copie intacte de l'ancienne sauvegarde (jamais écrasée). */
+export async function keepLegacy(raw: unknown): Promise<void> {
+  if ((await get('legacy')) !== undefined) return;
+  try {
+    await put('legacy', raw);
+  } catch {
+    /* stockage plein : l'export reste proposé */
+  }
+}
+
+export async function getLegacy(): Promise<unknown> {
+  return get('legacy');
 }
 
 export async function loadSave(): Promise<LoadResult> {
   const cur = await get('current');
   if (cur !== undefined) {
     const v = validateSave(cur);
-    if (v.ok) return { data: v.data };
+    if (v.ok) {
+      if (isLegacy(cur)) {
+        await keepLegacy(cur);
+        return { data: v.data, migrated: true };
+      }
+      return { data: v.data };
+    }
     const bak = await get('backup');
     if (bak !== undefined) {
       const vb = validateSave(bak);
-      if (vb.ok) return { data: vb.data, usedBackup: true, error: v.error };
+      if (vb.ok) {
+        if (isLegacy(bak)) await keepLegacy(bak);
+        return { data: vb.data, usedBackup: true, migrated: isLegacy(bak), error: v.error };
+      }
     }
     return { error: v.error };
   }

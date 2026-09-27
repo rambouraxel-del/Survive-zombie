@@ -3,7 +3,8 @@ import { item } from '../data/items';
 export interface Stack {
   id: string;
   qty: number;
-  dur?: number; // durabilité restante (objets à pile unique)
+  /** enchantement (objets à pile unique) : suit l'objet partout */
+  ench?: string;
 }
 
 export type Slots = (Stack | null)[];
@@ -16,10 +17,9 @@ export function cloneSlots(s: Slots): Slots {
   return s.map((x) => (x ? { ...x } : null));
 }
 
-export function newStack(id: string, qty: number, dur?: number): Stack {
-  const d = item(id);
+export function newStack(id: string, qty: number, ench?: string): Stack {
   const st: Stack = { id, qty };
-  if (d.durability !== undefined) st.dur = dur ?? d.durability;
+  if (ench && item(id).stack === 1) st.ench = ench;
   return st;
 }
 
@@ -41,7 +41,7 @@ export function spaceFor(slots: Slots, id: string): number {
 }
 
 /** Ajoute et renvoie la quantité qui n'a PAS pu être ajoutée. */
-export function addItem(slots: Slots, id: string, qty: number, dur?: number): number {
+export function addItem(slots: Slots, id: string, qty: number, ench?: string): number {
   const max = item(id).stack;
   let left = qty;
   if (max > 1) {
@@ -57,16 +57,16 @@ export function addItem(slots: Slots, id: string, qty: number, dur?: number): nu
   for (let i = 0; i < slots.length && left > 0; i++) {
     if (!slots[i]) {
       const n = Math.min(max, left);
-      slots[i] = newStack(id, n, dur);
+      slots[i] = newStack(id, n, ench);
       left -= n;
     }
   }
   return left;
 }
 
-/** Ajoute une pile existante (conserve la durabilité). Renvoie le reste. */
+/** Ajoute une pile existante (conserve l'enchantement). Renvoie le reste. */
 export function addStack(slots: Slots, st: Stack): number {
-  return addItem(slots, st.id, st.qty, st.dur);
+  return addItem(slots, st.id, st.qty, st.ench);
 }
 
 /** Retire `qty` d'un objet seulement si la quantité totale est disponible. */

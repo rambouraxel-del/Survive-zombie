@@ -1,158 +1,123 @@
-// Sérialisation versionnée d'une partie. Le monde est régénéré depuis sa graine,
-// puis les modifications enregistrées sont réappliquées.
-import { ITEMS } from '../data/items';
-import { BUILDING_BY_ID } from '../data/buildings';
+// Sauvegarde versionnée. V3 (V2 du jeu) : sections séparées — progression, camp, maison,
+// objets et équipement, maîtrises, compétences, états d'expédition, points de halte, butin pris,
+// donjons et paliers, ressources de sortie. Les préférences sont stockées à part (settings.ts).
+//
+// Historique : v1 — jeu d'origine ; v2 — barre rapide, marqueurs… ; v3 — refonte V2 (camp et
+// expéditions). Une ancienne sauvegarde (v1/v2) n'est jamais écrasée : elle est conservée à part
+// et ses possessions sont importées dans une nouvelle partie V2 (conversion ci-dessous).
+import { BUILDING_BY_ID, TRANSFER_CHEST_SIZE } from '../data/buildings';
+import { DUNGEONS } from '../data/destinations';
 import { ENEMIES, type EnemyType } from '../data/enemies';
-import { generateWorld } from '../world/generate';
-import { Game } from '../sim/game';
-import type { Slots, Stack } from '../sim/inventory';
-import { spawnEnemy } from '../sim/enemies';
-import type { Assault, FinalState, Stats, Facing, MapMarker } from '../sim/types';
-import { emptyHotbar, HOTBAR_SIZE, isHotbarAssignable, isHotbarUseful, type Hotbar } from '../sim/hotbar';
-import { normalizeObjectives } from '../sim/objectives';
+import { ENCHANT_BY_ID } from '../data/enchants';
+import { ITEMS } from '../data/items';
 import { RECIPE_ENTRIES } from '../data/recipes';
+import { FAMILIES, SKILL, type Family, type SkillId } from '../data/weapons';
+import { MAPS } from '../maps';
+import { Game, newLevelState, type DungeonState, type LevelState, type RunState } from '../sim/game';
+import { addItem, makeSlots, type Slots, type Stack } from '../sim/inventory';
+import { emptyHotbar, HOTBAR_SIZE, isHotbarAssignable, type Hotbar } from '../sim/hotbar';
+import { normalizeObjectives } from '../sim/objectives';
+import { spawnEnemy } from '../sim/enemies';
+import { loadMap, storeFog } from '../sim/travel';
+import { newStats, type Facing, type MapMarker, type Stats } from '../sim/types';
+import type { World } from '../world/world';
+import { TILE } from '../config/balance';
 
-/**
- * Historique des versions :
- *  1 — version d'origine ;
- *  2 — barre rapide indépendante, marqueurs de carte, recette suivie, tutoriel passé,
- *      niveau des constructions, version du générateur de monde.
- */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const SAVE_TAG = 'les-bois-de-cendre';
+
+interface BuildingSave {
+  id: number;
+  type: string;
+  x: number;
+  y: number;
+  level?: number;
+  items?: Slots;
+  meat?: number;
+  trapTimer?: number;
+}
 
 export interface SaveData {
   tag: string;
   v: number;
   savedAt: number;
   seed: number;
-  clock: number;
-  day: number;
-  dayTime: number;
   rng: number;
-  player: {
-    x: number; y: number; hp: number; hunger: number; stamina: number; facing: Facing;
-    inv: Slots; equip: { weapon: Stack | null; tool: Stack | null; armor: Stack | null };
+  progress: {
+    clock: number;
+    flags: string[];
+    completed: string[];
+    journal: { t: number; text: string }[];
+    stats: Stats;
+    tutorialSkipped: boolean;
+    starter: string | null;
+    runSeq: number;
+    lastDest: string;
+    migrationNote: string | null;
   };
-  objects: { id: number; hp?: number; depleted?: boolean; regrowAt?: number; items?: Slots | null; opened?: boolean; taken?: boolean }[];
-  buildings: { id: number; type: string; x: number; y: number; hp: number; items?: Slots; meat?: number; trapTimer?: number; level?: number }[];
-  bags: { id: number; x: number; y: number; items: Slots; kind: 'death' | 'chest' | 'drop' }[];
-  nextBagId: number;
-  nextBuildingId: number;
-  fog: string;
-  landmarks: string[];
-  enemies: { type: EnemyType; x: number; y: number; hp: number; kind: 'ambient' | 'assault' | 'guardian' | 'final' }[];
-  assault: Assault | null;
-  final: FinalState;
-  freed: boolean;
-  stats: Stats;
-  completed: string[];
-  fragmentsTaken: string[];
-  deathBagId: number;
-  victorySeen: boolean;
-  // v2
-  genVersion?: number;
-  hotbar?: Hotbar;
-  hotbarSeen?: string[];
-  pinned?: string | null;
-  markers?: MapMarker[];
-  nextMarkerId?: number;
-  tutorialSkipped?: boolean;
-}
-
-function b64(u: Uint8Array): string {
-  let s = '';
-  for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
-  return btoa(s);
-}
-function unb64(s: string, len: number): Uint8Array {
-  const bin = atob(s);
-  const out = new Uint8Array(len);
-  for (let i = 0; i < Math.min(len, bin.length); i++) out[i] = bin.charCodeAt(i);
-  return out;
+  player: {
+    hp: number; hunger: number; stamina: number; mana: number; facing: Facing; weakT: number;
+    inv: Slots; equip: { weapon: Stack | null; armor: Stack | null; accessory: Stack | null };
+    xbowLoaded: boolean; reloadT: number;
+  };
+  masteries: Record<string, number>;
+  skills: { loadouts: Partial<Record<Family, (SkillId | null)[]>>; cooldowns: Record<string, number>; ult: number };
+  camp: { buildings: BuildingSave[]; nextBuildingId: number; bags: { id: number; x: number; y: number; items: Slots }[] };
+  house: { buildings: BuildingSave[]; nextBuildingId: number };
+  hotbar: Hotbar;
+  hotbarSeen: string[];
+  pinned: string | null;
+  markers: MapMarker[];
+  nextMarkerId: number;
+  levels: Record<string, LevelState>;
+  dungeons: Record<string, DungeonState>;
+  run: RunState | null;
+  location: { map: string; x: number; y: number };
+  enemies: { key: string; type: EnemyType; x: number; y: number; hp: number; maxHp: number; elite: boolean; dmgMul: number; boss: boolean; minion?: boolean }[];
 }
 
 const copySlots = (s: Slots): Slots => s.map((x) => (x ? { ...x } : null));
 const copyStack = (s: Stack | null): Stack | null => (s ? { ...s } : null);
+const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v));
+
+function saveBuildings(w: World): BuildingSave[] {
+  return [...w.buildings.values()].map((b) => ({ id: b.id, type: b.type, x: b.x, y: b.y, level: b.level, items: b.items ? copySlots(b.items) : undefined, meat: b.meat, trapTimer: b.trapTimer }));
+}
 
 export function serialize(g: Game): SaveData {
-  const w = g.world;
+  const p = g.player;
+  if (!g.atCamp) storeFog(g);
+  const run = g.run ? clone(g.run) : null;
   return {
     tag: SAVE_TAG,
     v: SAVE_VERSION,
     savedAt: Date.now(),
-    seed: w.seed,
-    clock: g.clock,
-    day: g.day,
-    dayTime: g.dayTime,
+    seed: g.seed,
     rng: g.rng.state,
-    player: {
-      x: g.player.x, y: g.player.y, hp: g.player.hp, hunger: g.player.hunger, stamina: g.player.stamina,
-      facing: g.player.facing, inv: copySlots(g.player.inv),
-      equip: { weapon: copyStack(g.player.equip.weapon), tool: copyStack(g.player.equip.tool), armor: copyStack(g.player.equip.armor) },
+    progress: {
+      clock: g.clock, flags: [...g.flags], completed: [...g.completed], journal: clone(g.journal), stats: clone(g.stats),
+      tutorialSkipped: g.tutorialSkipped, starter: g.starter, runSeq: g.runSeq, lastDest: g.lastDest, migrationNote: g.migrationNote,
     },
-    objects: w.objects
-      .filter((o) => o.depleted || o.opened || o.taken || (o.hp !== undefined && o.maxHp !== undefined && o.hp < o.maxHp))
-      .map((o) => ({ id: o.id, hp: o.hp, depleted: o.depleted, regrowAt: o.regrowAt, items: o.items ? copySlots(o.items) : o.items, opened: o.opened, taken: o.taken })),
-    buildings: [...w.buildings.values()].map((b) => ({ id: b.id, type: b.type, x: b.x, y: b.y, hp: b.hp, items: b.items ? copySlots(b.items) : undefined, meat: b.meat, trapTimer: b.trapTimer, level: b.level })),
-    bags: [...w.bags.values()].map((b) => ({ id: b.id, x: b.x, y: b.y, items: copySlots(b.items), kind: b.kind })),
-    nextBagId: w.nextBagId,
-    nextBuildingId: w.nextBuildingId,
-    fog: b64(w.fog),
-    landmarks: w.landmarks.filter((l) => l.discovered).map((l) => l.id),
-    enemies: g.enemies.filter((e) => e.dying <= 0 && e.hp > 0).map((e) => ({ type: e.type, x: e.x, y: e.y, hp: e.hp, kind: e.kind })),
-    assault: g.assault ? { ...g.assault } : null,
-    final: { ...g.final },
-    freed: g.freed,
-    stats: JSON.parse(JSON.stringify(g.stats)),
-    completed: [...g.completed],
-    fragmentsTaken: [...g.fragmentsTaken],
-    deathBagId: g.deathBagId,
-    victorySeen: g.victorySeen,
-    genVersion: g.genVersion,
+    player: {
+      hp: p.dead ? 1 : p.hp, hunger: p.hunger, stamina: p.stamina, mana: p.mana, facing: p.facing, weakT: p.weakT,
+      inv: copySlots(p.inv), equip: { weapon: copyStack(p.equip.weapon), armor: copyStack(p.equip.armor), accessory: copyStack(p.equip.accessory) },
+      xbowLoaded: p.xbowLoaded, reloadT: p.reloadT,
+    },
+    masteries: { ...g.mastery },
+    skills: { loadouts: clone(g.loadouts), cooldowns: { ...g.cooldowns }, ult: g.ult },
+    camp: { buildings: saveBuildings(g.campWorld), nextBuildingId: g.campWorld.nextBuildingId, bags: [...g.campWorld.bags.values()].map((b) => ({ id: b.id, x: b.x, y: b.y, items: copySlots(b.items) })) },
+    house: { buildings: saveBuildings(g.houseWorld), nextBuildingId: g.houseWorld.nextBuildingId },
     hotbar: g.hotbar.map((h) => (h ? { ...h } : null)),
     hotbarSeen: [...g.hotbarSeen],
     pinned: g.pinned,
     markers: g.markers.map((m) => ({ ...m })),
     nextMarkerId: g.nextMarkerId,
-    tutorialSkipped: g.tutorialSkipped,
+    levels: clone(g.levels),
+    dungeons: clone(g.dungeons),
+    run,
+    location: { map: g.mapId, x: p.x, y: p.y },
+    enemies: run ? g.enemies.filter((e) => e.dying <= 0 && e.hp > 0).map((e) => ({ key: e.key, type: e.type, x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, elite: e.elite, dmgMul: e.dmgMul, boss: e.boss, minion: e.minion })) : [],
   };
-}
-
-// ------------------------------------------------------------ migration
-/**
- * Convertit une sauvegarde d'une version antérieure vers la version courante, sans
- * perte ni duplication d'objets (aucun objet n'est déplacé ni créé).
- */
-export function migrateSave(d: SaveData): SaveData {
-  const out: SaveData = JSON.parse(JSON.stringify(d));
-  if (out.v < 2) {
-    // le monde d'origine est conservé tel quel
-    out.genVersion = 1;
-    // barre rapide : les objets utiles des 5 premières cases de l'ancien sac, puis
-    // l'équipement et les soins/aliments possédés, sans doublon
-    const hb: Hotbar = emptyHotbar();
-    const ids: string[] = [];
-    const push = (id: string | undefined) => {
-      if (!id || ids.includes(id) || !isHotbarUseful(id) || ids.length >= HOTBAR_SIZE) return;
-      ids.push(id);
-    };
-    for (const st of out.player.inv.slice(0, 5)) push(st?.id);
-    push(out.player.equip.weapon?.id);
-    push(out.player.equip.tool?.id);
-    for (const st of out.player.inv) if (st && ITEMS[st.id].kind === 'consumable') push(st.id);
-    for (const st of out.player.inv) if (st && ITEMS[st.id].kind === 'food') push(st.id);
-    ids.forEach((id, i) => (hb[i] = { id, manual: false }));
-    out.hotbar = hb;
-    out.hotbarSeen = [...ids];
-    out.pinned = null;
-    out.markers = [];
-    out.nextMarkerId = 1;
-    out.tutorialSkipped = false;
-    out.stats = { ...out.stats, craftedBy: out.stats.craftedBy ?? {}, scenesVisited: out.stats.scenesVisited ?? [] };
-    out.v = 2;
-  }
-  return out;
 }
 
 // ------------------------------------------------------------ validation
@@ -167,145 +132,281 @@ function checkSlots(s: unknown, where: string, errors: string[]): void {
   }
   for (const x of s) {
     if (x === null) continue;
-    if (typeof x !== 'object' || !ITEMS[(x as Stack).id] || !isNum((x as Stack).qty) || (x as Stack).qty <= 0 || !Number.isInteger((x as Stack).qty)) {
+    const st = x as Stack;
+    if (typeof x !== 'object' || !ITEMS[st.id] || !isNum(st.qty) || st.qty <= 0 || !Number.isInteger(st.qty)) {
       errors.push(`${where} : objet invalide`);
       return;
     }
-    if ((x as Stack).qty > ITEMS[(x as Stack).id].stack) {
+    if (st.qty > ITEMS[st.id].stack) {
       errors.push(`${where} : pile trop grande`);
+      return;
+    }
+    if (st.ench !== undefined && !ENCHANT_BY_ID[st.ench]) {
+      errors.push(`${where} : enchantement inconnu`);
       return;
     }
   }
 }
 
-export function validateSave(data: unknown): { ok: true; data: SaveData } | { ok: false; error: string } {
-  const errors: string[] = [];
+export type ValidateResult = { ok: true; data: SaveData; legacy?: unknown } | { ok: false; error: string };
+
+/** Valide une sauvegarde (ou un fichier importé) avant tout remplacement de la partie active. */
+export function validateSave(data: unknown): ValidateResult {
   if (!data || typeof data !== 'object') return { ok: false, error: 'Fichier illisible.' };
   const d = data as SaveData;
   if (d.tag !== SAVE_TAG) return { ok: false, error: 'Ce fichier n’est pas une sauvegarde des Bois de Cendre.' };
   if (!isNum(d.v)) return { ok: false, error: 'Version de sauvegarde absente.' };
   if (d.v > SAVE_VERSION) return { ok: false, error: `Sauvegarde d’une version plus récente (v${d.v}) : incompatible avec ce jeu (v${SAVE_VERSION}).` };
   if (d.v < 1) return { ok: false, error: 'Version de sauvegarde incompatible.' };
-  for (const k of ['seed', 'clock', 'day', 'dayTime', 'nextBagId', 'nextBuildingId'] as const) if (!isNum(d[k])) errors.push(`${k} manquant`);
-  if (!d.player || !isNum(d.player.x) || !isNum(d.player.y) || !isNum(d.player.hp) || !isNum(d.player.hunger)) errors.push('joueur invalide');
+  if (d.v < 3) {
+    const lv = validateLegacy(data as LegacySave);
+    if (!lv.ok) return lv;
+    return { ok: true, data: convertLegacy(data as LegacySave), legacy: data };
+  }
+  const errors: string[] = [];
+  if (!isNum(d.seed)) errors.push('graine manquante');
+  if (!d.progress || !isNum(d.progress.clock) || !Array.isArray(d.progress.flags)) errors.push('progression invalide');
+  if (!d.player || !isNum(d.player.hp) || !isNum(d.player.hunger)) errors.push('joueur invalide');
   else {
-    checkSlots(d.player.inv, 'inventaire', errors);
-    if (!Array.isArray(d.player.inv) || d.player.inv.length !== 24) errors.push('inventaire : taille invalide');
-    for (const k of ['weapon', 'tool', 'armor'] as const) {
+    checkSlots(d.player.inv, 'sac', errors);
+    if (!Array.isArray(d.player.inv) || d.player.inv.length !== 24) errors.push('sac : taille invalide');
+    for (const k of ['weapon', 'armor', 'accessory'] as const) {
       const s = d.player.equip?.[k];
-      if (s && !ITEMS[s.id]) errors.push(`équipement ${k} invalide`);
+      if (s && (!ITEMS[s.id] || ITEMS[s.id].slot !== k)) errors.push(`équipement ${k} invalide`);
     }
   }
-  if (!Array.isArray(d.objects)) errors.push('objets manquants');
-  else for (const o of d.objects) {
-    if (!isNum(o.id)) errors.push('objet sans identifiant');
-    if (o.items) checkSlots(o.items, 'conteneur', errors);
+  if (!d.masteries || FAMILIES.some((f) => !isNum(d.masteries[f] ?? 0))) errors.push('maîtrises invalides');
+  if (!d.skills || !isNum(d.skills.ult)) errors.push('compétences invalides');
+  else for (const [f, lo] of Object.entries(d.skills.loadouts ?? {})) if (!Array.isArray(lo) || lo.some((id) => id !== null && (!SKILL[id as SkillId] || SKILL[id as SkillId].family !== f))) errors.push('compétence inconnue');
+  for (const part of [d.camp, d.house]) {
+    if (!part || !Array.isArray(part.buildings)) {
+      errors.push('camp invalide');
+      continue;
+    }
+    for (const b of part.buildings) {
+      if (!BUILDING_BY_ID[b.type] || !isNum(b.x) || !isNum(b.y)) errors.push('installation invalide');
+      if (b.items) checkSlots(b.items, 'coffre', errors);
+    }
   }
-  if (!Array.isArray(d.buildings)) errors.push('constructions manquantes');
-  else for (const b of d.buildings) {
-    if (!BUILDING_BY_ID[b.type] || !isNum(b.x) || !isNum(b.y) || !isNum(b.hp)) errors.push('construction invalide');
-    if (b.items) checkSlots(b.items, 'coffre', errors);
+  if (!Array.isArray(d.hotbar) || d.hotbar.length !== HOTBAR_SIZE) errors.push('barre rapide invalide');
+  else for (const h of d.hotbar) if (h !== null && (!ITEMS[h.id] || !isHotbarAssignable(h.id))) errors.push('raccourci invalide');
+  if (d.pinned !== null && d.pinned !== undefined && !RECIPE_ENTRIES.some((e) => e.key === d.pinned)) errors.push('recette suivie inconnue');
+  if (!d.levels || typeof d.levels !== 'object') errors.push('états d’expédition manquants');
+  else for (const [k, l] of Object.entries(d.levels)) {
+    if (!MAPS[k]) errors.push('carte inconnue');
+    for (const c of Object.values(l.chests ?? {})) checkSlots(c, 'coffre d’expédition', errors);
   }
-  if (!Array.isArray(d.bags)) errors.push('sacs manquants');
-  else for (const b of d.bags) checkSlots(b.items, 'sac', errors);
-  if (!Array.isArray(d.enemies)) errors.push('ennemis manquants');
-  else for (const e of d.enemies) if (!ENEMIES[e.type]) errors.push('ennemi inconnu');
-  if (!d.final || !['locked', 'ready', 'active', 'won'].includes(d.final.state)) errors.push('état final invalide');
-  if (!d.stats || typeof d.stats !== 'object') errors.push('statistiques manquantes');
-  if (typeof d.fog !== 'string') errors.push('carte manquante');
-  if (d.hotbar !== undefined) {
-    if (!Array.isArray(d.hotbar) || d.hotbar.length !== HOTBAR_SIZE) errors.push('barre rapide invalide');
-    else for (const h of d.hotbar) if (h !== null && (typeof h !== 'object' || !ITEMS[h.id] || !isHotbarAssignable(h.id))) errors.push('raccourci invalide');
+  if (!d.dungeons || typeof d.dungeons !== 'object') errors.push('donjons manquants');
+  else for (const [k, s] of Object.entries(d.dungeons)) if (!DUNGEONS[k] || !isNum(s.unlocked) || s.unlocked < 1 || s.unlocked > 5) errors.push('donjon invalide');
+  if (d.run) {
+    if (!MAPS[d.run.map] || !isNum(d.run.id)) errors.push('expédition en cours invalide');
+    for (const c of Object.values(d.run.chests ?? {})) checkSlots(c, 'coffre d’instance', errors);
   }
-  if (d.markers !== undefined) {
-    if (!Array.isArray(d.markers)) errors.push('marqueurs invalides');
-    else for (const m of d.markers) if (!m || !isNum(m.x) || !isNum(m.y) || typeof m.name !== 'string' || !['resource', 'danger', 'camp', 'revisit'].includes(m.cat)) errors.push('marqueur invalide');
-  }
-  if (d.pinned !== undefined && d.pinned !== null && !RECIPE_ENTRIES.some((e) => e.key === d.pinned)) errors.push('recette suivie inconnue');
-  if (d.genVersion !== undefined && (!isNum(d.genVersion) || d.genVersion < 1 || d.genVersion > 2)) errors.push('version du monde inconnue');
-  if (errors.length) return { ok: false, error: `Sauvegarde corrompue (${errors.slice(0, 3).join(' ; ')}).` };
-  return { ok: true, data: migrateSave(d) };
+  if (!d.location || !MAPS[d.location.map] || !isNum(d.location.x) || !isNum(d.location.y)) errors.push('position invalide');
+  if (d.location && d.location.map !== 'camp' && d.location.map !== 'house' && (!d.run || d.run.map !== d.location.map)) errors.push('position hors expédition');
+  if (!Array.isArray(d.enemies) || d.enemies.some((e) => !ENEMIES[e.type])) errors.push('ennemis invalides');
+  if (errors.length) return { ok: false, error: `Sauvegarde corrompue (${[...new Set(errors)].slice(0, 3).join(' ; ')}).` };
+  return { ok: true, data: d };
 }
 
 // ------------------------------------------------------------ chargement
-export function deserialize(input: SaveData): Game {
-  const d = migrateSave(input);
-  const genVersion = d.genVersion ?? 1;
-  const { world } = generateWorld(d.seed, genVersion);
-  const g = new Game(world, d.seed);
-  g.genVersion = genVersion;
-  g.clock = d.clock;
-  g.day = d.day;
-  g.dayTime = d.dayTime;
-  g.lastPhase = g.phase();
-  g.rng.state = d.rng >>> 0;
-  const p = g.player;
-  p.x = d.player.x;
-  p.y = d.player.y;
-  p.hp = d.player.hp;
-  p.hunger = d.player.hunger;
-  p.stamina = d.player.stamina ?? 100;
-  p.facing = d.player.facing ?? 'down';
-  p.inv = copySlots(d.player.inv);
-  p.equip = { weapon: copyStack(d.player.equip.weapon), tool: copyStack(d.player.equip.tool), armor: copyStack(d.player.equip.armor) };
-  if (p.hp <= 0) {
-    p.hp = 1; // une sauvegarde faite pendant la mort reprend au point de retour
-    g.respawn();
-  }
-
-  for (const s of d.objects) {
-    const o = world.objects[s.id];
-    if (!o) continue;
-    if (s.hp !== undefined) o.hp = s.hp;
-    if (s.items !== undefined) o.items = s.items ? copySlots(s.items) : null;
-    o.opened = !!s.opened;
-    o.taken = !!s.taken;
-    if (s.depleted) {
-      o.depleted = true;
-      o.regrowAt = s.regrowAt;
-      g.depleted.add(o.id);
-      if (o.type !== 'tree' && o.type !== 'bush') {
-        o.solid = false;
-        world.unstampObject(o);
-      }
-    }
-  }
-  for (const b of d.buildings) {
-    const nb = world.addBuilding(b.type, b.x, b.y, b.hp, b.id);
+function restoreBuildings(w: World, list: BuildingSave[], next: number): void {
+  for (const id of [...w.buildings.keys()]) w.removeBuilding(id);
+  for (const b of list) {
+    const nb = w.addBuilding(b.type, b.x, b.y, b.id);
     if (b.level && b.level >= 2 && BUILDING_BY_ID[b.type].upgrade) nb.level = 2;
-    // le contenu est toujours conservé en entier (un coffre agrandi garde ses 24 cases)
     if (b.items && nb.items) nb.items = copySlots(b.items);
     if (b.meat !== undefined) nb.meat = b.meat;
     if (b.trapTimer !== undefined) nb.trapTimer = b.trapTimer;
   }
-  world.nextBuildingId = Math.max(world.nextBuildingId, d.nextBuildingId);
-  for (const b of d.bags) world.bags.set(b.id, { id: b.id, x: b.x, y: b.y, items: copySlots(b.items), kind: b.kind });
-  world.nextBagId = Math.max(d.nextBagId, ...[...world.bags.keys()].map((k) => k + 1), 1);
-  world.fog = unb64(d.fog, world.fog.length);
-  for (const lm of world.landmarks) lm.discovered = lm.id === 'start' || d.landmarks.includes(lm.id);
-  for (const e of d.enemies) {
-    const ne = spawnEnemy(g, e.type, e.x, e.y, e.kind);
-    ne.hp = e.hp;
-  }
-  g.assault = d.assault ? { ...d.assault } : null;
-  g.final = { ...d.final };
-  if (g.final.state === 'active') g.final.spawnedWave = g.enemies.some((e) => e.kind === 'final');
-  g.freed = !!d.freed;
-  g.stats = { ...g.stats, ...d.stats, craftedBy: { ...(d.stats.craftedBy ?? {}) }, scenesVisited: [...(d.stats.scenesVisited ?? [])] };
-  g.completed = new Set(d.completed);
-  g.fragmentsTaken = [...d.fragmentsTaken];
-  g.deathBagId = d.deathBagId;
-  g.victorySeen = !!d.victorySeen;
+  w.nextBuildingId = Math.max(w.nextBuildingId, next);
+}
+
+export function deserialize(input: SaveData): Game {
+  const v = validateSave(input);
+  if (!v.ok) throw new Error(v.error);
+  const d = v.data;
+  const g = new Game(d.seed);
+  g.rng.state = d.rng >>> 0;
+  const pr = d.progress;
+  g.clock = pr.clock;
+  g.flags = new Set(pr.flags);
+  g.completed = new Set(pr.completed);
+  g.journal = clone(pr.journal ?? []);
+  g.stats = { ...newStats(), ...clone(pr.stats) };
+  g.tutorialSkipped = !!pr.tutorialSkipped;
+  g.starter = pr.starter ?? null;
+  g.runSeq = pr.runSeq ?? 0;
+  g.lastDest = pr.lastDest ?? 'bois';
+  g.migrationNote = pr.migrationNote ?? null;
+  for (const f of FAMILIES) g.mastery[f] = d.masteries[f] ?? 0;
+  g.loadouts = clone(d.skills.loadouts ?? {});
+  g.cooldowns = { ...(d.skills.cooldowns ?? {}) };
+  g.ult = Math.max(0, Math.min(100, d.skills.ult));
+  restoreBuildings(g.campWorld, d.camp.buildings, d.camp.nextBuildingId);
+  for (const b of d.camp.bags ?? []) g.campWorld.bags.set(b.id, { id: b.id, x: b.x, y: b.y, items: copySlots(b.items), kind: 'drop' });
+  g.campWorld.nextBagId = Math.max(1, ...[...g.campWorld.bags.keys()].map((k) => k + 1));
+  restoreBuildings(g.houseWorld, d.house.buildings, d.house.nextBuildingId);
   g.hotbar = (d.hotbar ?? emptyHotbar()).map((h) => (h && ITEMS[h.id] ? { id: h.id, manual: !!h.manual } : null));
   g.hotbarSeen = new Set(d.hotbarSeen ?? []);
   g.pinned = d.pinned ?? null;
-  g.markers = (d.markers ?? []).map((m) => ({ ...m }));
+  g.markers = (d.markers ?? []).map((m) => ({ ...m, map: m.map ?? 'camp' }));
   g.nextMarkerId = Math.max(d.nextMarkerId ?? 1, ...g.markers.map((m) => m.id + 1), 1);
-  g.tutorialSkipped = !!d.tutorialSkipped;
+  g.levels = {};
+  for (const [k, l] of Object.entries(d.levels ?? {})) g.levels[k] = { ...newLevelState(), ...clone(l) };
+  g.dungeons = clone(d.dungeons ?? {});
+  g.run = d.run ? { ...clone(d.run), opened: d.run.opened ?? [], votive: d.run.votive ?? {} } : null;
+  const p = g.player;
+  const dp = d.player;
+  p.inv = copySlots(dp.inv);
+  p.equip = { weapon: copyStack(dp.equip.weapon), armor: copyStack(dp.equip.armor), accessory: copyStack(dp.equip.accessory) };
+  p.hunger = dp.hunger;
+  p.stamina = dp.stamina ?? 100;
+  p.mana = dp.mana ?? 100;
+  p.facing = dp.facing ?? 'down';
+  p.weakT = dp.weakT ?? 0;
+  p.xbowLoaded = dp.xbowLoaded ?? true;
+  p.reloadT = dp.reloadT ?? 0;
+  // position : l'instance d'expédition en cours est restaurée telle quelle (rien n'est régénéré)
+  const loc = d.location;
+  if (g.run && loc.map === g.run.map) {
+    loadMap(g, g.run.map, g.run.kind === 'dungeon' ? 'dungeon' : 'main', { kind: 'pos', x: loc.x, y: loc.y });
+    // ennemis : état sauvegardé (positions, PV), jamais une nouvelle population
+    g.enemies = [];
+    for (const e of d.enemies) {
+      const ne = spawnEnemy(g, e.type, e.x, e.y, { key: e.key, boss: e.boss, elite: e.elite, dmgMul: e.dmgMul, minion: e.minion });
+      ne.maxHp = e.maxHp;
+      ne.hp = e.hp;
+    }
+  } else loadMap(g, loc.map === 'house' ? 'house' : 'camp', 'main', { kind: 'pos', x: loc.x, y: loc.y });
+  p.hp = Math.max(1, dp.hp);
   normalizeObjectives(g);
-  if (g.final.state !== 'locked') {
-    world.objects[world.sanctuaryId].sprite = 'world:seal_stone_on';
-    g.sanctuaryRestored = true;
-  }
   return g;
+}
+
+// ------------------------------------------------------------ anciennes sauvegardes (v1, v2)
+export interface LegacySave {
+  tag: string;
+  v: number;
+  seed: number;
+  day?: number;
+  player: { inv: Slots; equip: { weapon: Stack | null; tool: Stack | null; armor: Stack | null } };
+  buildings: { type: string; level?: number; items?: Slots }[];
+  bags: { items: Slots }[];
+  stats?: { playTime?: number };
+}
+
+const V1_COSTS: Record<string, Record<string, number>> = {
+  campfire: { wood: 5, stone: 3 }, workbench: { wood: 10, stone: 4 }, chest: { planks: 4 }, bed: { fiber: 8, wood: 4 }, palisade: { wood: 4 },
+  door: { planks: 4, rope: 2 }, spikes: { wood: 6, rope: 1 }, forge: { stone: 16, wood: 6, coal: 2 }, trap: { wood: 4, rope: 2 }, lamp: { wood: 3, coal: 1, scrap: 1 },
+};
+const V1_UPGRADES: Record<string, Record<string, number>> = {
+  campfire: { stone: 6, scrap: 2 }, workbench: { planks: 4, rope: 2, stone: 4 }, chest: { planks: 6, rope: 2 },
+};
+/** Correspondance des objets de l'ancienne version (les fragments du sceau ne sont pas importés). */
+const V1_MAP: Record<string, string | Record<string, number> | null> = {
+  club: 'mace_1', sword: 'sword_1', bow: 'bow_1', spear: { wood: 4, fiber: 2 }, arrow: { wood: 1 }, frag_1: null, frag_2: null, frag_3: null,
+};
+
+function validateLegacy(d: LegacySave): { ok: true } | { ok: false; error: string } {
+  const errors: string[] = [];
+  if (!isNum(d.seed)) errors.push('graine manquante');
+  if (!d.player || !Array.isArray(d.player.inv)) errors.push('joueur invalide');
+  if (!Array.isArray(d.buildings)) errors.push('constructions manquantes');
+  if (!Array.isArray(d.bags)) errors.push('sacs manquants');
+  const okId = (id: string) => id in V1_MAP || !!ITEMS[id];
+  const check = (s: Slots | undefined) => {
+    if (!s) return;
+    if (!Array.isArray(s)) return errors.push('liste d’objets invalide');
+    for (const x of s) if (x && (!okId(x.id) || !isNum(x.qty) || x.qty <= 0)) errors.push('objet inconnu');
+  };
+  check(d.player?.inv);
+  for (const b of d.buildings ?? []) {
+    if (!(b.type in V1_COSTS)) errors.push('construction inconnue');
+    check(b.items);
+  }
+  for (const b of d.bags ?? []) check(b.items);
+  if (errors.length) return { ok: false, error: `Ancienne sauvegarde illisible (${[...new Set(errors)].slice(0, 3).join(' ; ')}).` };
+  return { ok: true };
+}
+
+/**
+ * Importe les possessions d'une ancienne partie dans une nouvelle partie V2 : objets compatibles
+ * convertis, constructions remboursées, contenu des coffres et des sacs au sol conservé, le tout
+ * rangé dans des coffres de transfert au camp. La quête des fragments n'est pas importée.
+ */
+export function convertLegacy(d: LegacySave): SaveData {
+  const g = Game.newGame((d.seed ^ 0x2a2a2a) >>> 0);
+  const pool: { id: string; qty: number; ench?: string }[] = [];
+  let dropped = 0;
+  const addConv = (id: string, qty: number) => {
+    const m = V1_MAP[id];
+    if (m === null) {
+      dropped += qty;
+      return;
+    }
+    if (typeof m === 'string') pool.push({ id: m, qty });
+    else if (m) {
+      // objet sans équivalent : remboursé en matériaux (flèches : 1 bois pour 3)
+      const k = id === 'arrow' ? Math.floor(qty / 3) : qty;
+      for (const [rid, n] of Object.entries(m)) if (k * n > 0) pool.push({ id: rid, qty: k * n });
+    } else if (ITEMS[id]) pool.push({ id, qty });
+  };
+  const p = g.player;
+  // équipement : l'arme et la protection compatibles restent en main
+  const w = d.player.equip?.weapon;
+  if (w) {
+    const m = V1_MAP[w.id];
+    if (typeof m === 'string') p.equip.weapon = { id: m, qty: 1 };
+    else addConv(w.id, 1);
+  }
+  const a = d.player.equip?.armor;
+  if (a && ITEMS[a.id]?.slot === 'armor') p.equip.armor = { id: a.id, qty: 1 };
+  const t = d.player.equip?.tool;
+  if (t) {
+    if (t.id === 'torch') p.equip.accessory = { id: 'torch', qty: 1 };
+    else addConv(t.id, 1);
+  }
+  for (const s of d.player.inv) if (s) addConv(s.id, s.qty);
+  for (const b of d.buildings ?? []) {
+    for (const [id, n] of Object.entries(V1_COSTS[b.type] ?? {})) pool.push({ id, qty: n });
+    if ((b.level ?? 1) >= 2) for (const [id, n] of Object.entries(V1_UPGRADES[b.type] ?? {})) pool.push({ id, qty: n });
+    for (const s of b.items ?? []) if (s) addConv(s.id, s.qty);
+  }
+  for (const bag of d.bags ?? []) for (const s of bag.items) if (s) addConv(s.id, s.qty);
+  // rangement : sac d'abord (outils et vivres utiles), puis coffres de transfert au camp
+  const chests: Slots[] = [];
+  const spots = [[16, 22], [17, 22], [15, 22], [18, 22], [14, 22], [19, 22]];
+  const newChest = (): Slots => {
+    const [x, y] = spots[chests.length] ?? [16 + chests.length, 23];
+    const b = g.campWorld.addBuilding('transfer', x, y);
+    b.items = makeSlots(TRANSFER_CHEST_SIZE);
+    chests.push(b.items);
+    return b.items;
+  };
+  let cur = newChest();
+  for (const s of pool) {
+    let left = addItem(cur, s.id, s.qty, s.ench);
+    while (left > 0 && chests.length < spots.length) {
+      cur = newChest();
+      left = addItem(cur, s.id, left, s.ench);
+    }
+    if (left > 0) addItem(p.inv, s.id, left, s.ench);
+  }
+  g.flags.add('first_return');
+  g.flags.add('migrated');
+  g.completed.add('o_gear');
+  const n = pool.reduce((k, s) => k + s.qty, 0);
+  g.migrationNote = `Ancienne partie importée (version ${d.v}) : ${n} objet(s) et matériaux rangés dans ${chests.length} coffre(s) de transfert au camp, constructions remboursées.` +
+    `${p.equip.weapon ? ` Arme conservée en main : ${ITEMS[p.equip.weapon.id].name}.` : ''}${dropped ? ' Les fragments du sceau n’ont pas été importés (la quête n’existe plus).' : ''}` +
+    ' Votre ancienne sauvegarde est conservée intacte (Options → exporter l’ancienne sauvegarde).';
+  g.log(g.migrationNote);
+  g.player.x = (16 + 0.5) * TILE;
+  g.player.y = (24 + 0.5) * TILE;
+  return serialize(g);
+}
+
+/** Une sauvegarde d'une version antérieure du jeu (v1, v2) ? */
+export function isLegacy(data: unknown): boolean {
+  return !!data && typeof data === 'object' && (data as SaveData).tag === SAVE_TAG && isNum((data as SaveData).v) && (data as SaveData).v < 3;
 }

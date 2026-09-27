@@ -9,8 +9,11 @@ REPO = sys.argv[1] if __name__ == '__main__' else ''
 OUT = sys.argv[2] if __name__ == '__main__' else ''
 F = 64
 ANIMS = {  # name: (cols, rows)
-    'walk': (9, 4), 'slash': (6, 4), 'thrust': (8, 4), 'shoot': (13, 4), 'hurt': (6, 1),
+    'walk': (9, 4), 'slash': (6, 4), 'thrust': (8, 4), 'shoot': (13, 4), 'hurt': (6, 1), 'spellcast': (7, 4),
 }
+# ordre des animations des personnages humanoïdes (même disposition que le joueur : les calques
+# d'équipement visibles s'alignent de la même façon sur tous)
+HUMAN = ['walk', 'slash', 'thrust', 'shoot', 'hurt', 'spellcast']
 PALS = {}
 BASE = {'body': 'light', 'cloth': 'white', 'hair': 'orange'}
 
@@ -73,7 +76,32 @@ CHARS = {
         ('spritesheets/torso/clothes/longsleeve/longsleeve2_buttoned/male/{anim}.png', 'cloth:forest'),
         ('spritesheets/head/heads/human/male/{anim}.png', None),
         ('spritesheets/hair/plain/adult/{anim}.png', 'hair:light_brown'),
-    ], ['walk', 'slash', 'thrust', 'shoot', 'hurt']),
+    ], HUMAN),
+    # V2 : mercenaires du bastion et leur chef (armes portées ajoutées au rendu par l'atlas d'équipement)
+    'merc': ([
+        ('spritesheets/body/bodies/male/{anim}.png', 'body:olive'),
+        ('spritesheets/feet/boots/basic/male/{anim}.png', 'cloth:black'),
+        ('spritesheets/legs/pants/male/{anim}.png', 'cloth:charcoal'),
+        ('spritesheets/torso/chainmail/male/{anim}.png', None),
+        ('spritesheets/head/heads/human/male/{anim}.png', 'body:olive'),
+        ('spritesheets/hat/helmet/barbuta_simple/adult/{anim}.png', None),
+    ], HUMAN),
+    'merc_archer': ([
+        ('spritesheets/body/bodies/male/{anim}.png', 'body:taupe'),
+        ('spritesheets/feet/boots/basic/male/{anim}.png', 'cloth:brown'),
+        ('spritesheets/legs/pants/male/{anim}.png', 'cloth:walnut'),
+        ('spritesheets/torso/armour/leather/male/{anim}.png', None),
+        ('spritesheets/head/heads/human/male/{anim}.png', 'body:taupe'),
+        ('spritesheets/hat/cloth/hood/adult/{anim}.png', 'cloth:maroon'),
+    ], HUMAN),
+    'chief': ([
+        ('spritesheets/body/bodies/male/{anim}.png', 'body:bronze'),
+        ('spritesheets/feet/boots/basic/male/{anim}.png', 'cloth:black'),
+        ('spritesheets/legs/pants/male/{anim}.png', 'cloth:maroon'),
+        ('spritesheets/torso/armour/plate/male/{anim}.png', None),
+        ('spritesheets/head/heads/human/male/{anim}.png', 'body:bronze'),
+        ('spritesheets/hat/helmet/barbarian_nasal/adult/{anim}.png', None),
+    ], HUMAN),
     'rodeur': ([
         ('spritesheets/body/bodies/zombie/{anim}/zombie.png', None),
         ('spritesheets/legs/pants/male/{anim}.png', 'cloth:bluegray'),

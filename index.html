@@ -7,7 +7,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="Les Bois de Cendre — survie et construction dans une forêt médiévale infestée de zombies. Jouable au téléphone." />
+    <meta name="description" content="Les Bois de Cendre — RPG d’exploration solo : un camp, des expéditions, sept armes à maîtriser. Jouable au téléphone." />
     <title>Les Bois de Cendre</title>
     <link rel="icon" type="image/png" href="favicon.png" />
   </head>
@@ -18,10 +18,12 @@
       <div id="hud" class="hidden">
         <div id="status">
           <div class="bar" id="bar-hp"><span class="lbl">PV</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
-          <div class="bar" id="bar-hunger"><span class="lbl">Faim</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
           <div class="bar" id="bar-stamina"><span class="lbl">Endu.</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
-          <div id="daybox"><span id="dayname"></span><div id="daytrack"><div id="dayfill"></div></div></div>
+          <div class="bar" id="bar-mana"><span class="lbl">Mana</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
+          <div class="bar" id="bar-hunger"><span class="lbl">Faim</span><div class="track"><div class="fill"></div></div><span class="val"></span></div>
+          <div id="placebox"><span id="place-line"></span></div>
         </div>
+        <div id="bossbar" class="hidden"><span id="boss-name"></span><div class="track"><div class="fill"></div></div></div>
         <button id="objective" aria-label="Objectif en cours : toucher pour les détails">
           <span class="obj-ico"></span><span id="obj-title"></span><span id="obj-progress"></span>
         </button>
@@ -32,7 +34,7 @@
           <button class="mbtn" id="m-inv" aria-label="Sac"><span class="mico"></span><span class="mlbl">Sac</span><kbd>I</kbd></button>
           <button class="mbtn" id="m-menu" aria-label="Menu : fabriquer, construire, carte, options"><span class="mico"></span><span class="mlbl">Menu</span><kbd>Échap</kbd></button>
         </div>
-        <div id="kbd-hints" aria-hidden="true"><span><kbd>ZQSD</kbd> marcher</span><span><kbd>Maj</kbd> courir</span><span><kbd>Espace</kbd> attaquer</span><span><kbd>E</kbd> action</span><span><kbd>K</kbd> esquive</span><span><kbd>1-5</kbd> raccourcis</span><span><kbd>C</kbd> fabriquer</span><span><kbd>B</kbd> construire</span><span><kbd>M</kbd> carte</span></div>
+        <div id="kbd-hints" aria-hidden="true"><span><kbd>ZQSD</kbd> marcher</span><span><kbd>Maj</kbd> courir</span><span><kbd>Espace</kbd> attaquer</span><span><kbd>E</kbd> action</span><span><kbd>K</kbd> esquive</span><span><kbd>U</kbd><kbd>I</kbd> compétences</span><span><kbd>L</kbd> ultime (maintenir, viser)</span><span><kbd>R</kbd> arme suivante</span><span><kbd>1-5</kbd> raccourcis</span><span><kbd>Tab</kbd> sac</span><span><kbd>N</kbd> journal</span><span><kbd>M</kbd> carte</span></div>
         <div id="debug" class="hidden"></div>
       </div>
 
@@ -41,10 +43,15 @@
         <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div><div id="joy-hint">Glissez pour marcher<br />(à fond : courir)</div></div>
         <div id="quickbar"></div>
         <div id="action-buttons">
+          <button id="btn-weapon" class="abtn tiny" aria-label="Changer d’arme"><span class="aico"></span><span class="wtier"></span></button>
+          <button id="btn-skill-0" class="abtn skill" aria-label="Compétence 1"><span class="aico"></span><span class="cd"></span><span class="cost"></span><kbd>U</kbd></button>
+          <button id="btn-skill-1" class="abtn skill" aria-label="Compétence 2"><span class="aico"></span><span class="cd"></span><span class="cost"></span><kbd>I</kbd></button>
+          <button id="btn-ult" class="abtn ult" aria-label="Ultime : maintenir et glisser pour viser"><span class="ring"></span><span class="aico"></span><span class="pct"></span><kbd>L</kbd></button>
           <button id="btn-dodge" class="abtn small" aria-label="Esquiver"><span class="aico"></span><span class="albl">Esquive</span></button>
           <button id="btn-action" class="abtn" aria-label="Action"><span class="aico"></span><span class="albl">Action</span></button>
-          <button id="btn-attack" class="abtn big" aria-label="Attaquer"><span class="aico"></span><span class="albl">Attaque</span><span class="dur hidden"><i></i></span></button>
+          <button id="btn-attack" class="abtn big" aria-label="Attaquer"><span class="aico"></span><span class="albl">Attaque</span><span class="reload hidden"><i></i></span></button>
         </div>
+        <div id="ult-cancel" class="hidden">Relâcher ici pour annuler</div>
       </div>
 
       <!-- Mode construction -->

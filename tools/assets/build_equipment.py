@@ -22,7 +22,7 @@ OUT = sys.argv[2] if len(sys.argv) > 2 else ''
 S = 'spritesheets/'
 
 # anim -> nombre de colonnes utiles (identique à la feuille du joueur)
-COLS = {'walk': 9, 'slash': 6, 'thrust': 8, 'shoot': 13, 'hurt': 6}
+COLS = {'walk': 9, 'slash': 6, 'thrust': 8, 'shoot': 13, 'hurt': 6, 'spellcast': 7}
 
 # (look, couche, anim, fichier, taille de cellule, correspondance colonne source -> image du corps)
 #  map = None : colonne source = image du corps ; 'rev6' : colonne j = image 5 - j (animation inversée)
@@ -56,6 +56,47 @@ LAYERS = [
     ('bow', 'bg', 'shoot', 'weapon/ranged/bow/normal/universal/background/shoot/normal.png', 64, None),
     ('bow', 'fg', 'shoot', 'weapon/ranged/bow/normal/universal/foreground/shoot/normal.png', 64, None),
     ('arrow', 'fg', 'shoot', 'weapon/ranged/bow/arrow/shoot/arrow.png', 64, None),
+    # V2 — Dague (wulax, bluecarrot16) : marche, taille, estoc
+    ('dagger', 'bg', 'walk', 'weapon/sword/dagger/behind/walk/dagger.png', 64, None),
+    ('dagger', 'fg', 'walk', 'weapon/sword/dagger/walk/dagger.png', 64, None),
+    ('dagger', 'bg', 'slash', 'weapon/sword/dagger/behind/slash/dagger.png', 64, None),
+    ('dagger', 'fg', 'slash', 'weapon/sword/dagger/slash/dagger.png', 64, None),
+    ('dagger', 'fg', 'thrust', 'weapon/sword/dagger/thrust/dagger.png', 64, None),
+    # V2 — Épée longue (ElizaWy, JaidynReiman, bluecarrot16…)
+    ('longsword', 'bg', 'walk', 'weapon/sword/longsword/universal_behind/walk/longsword.png', 64, None),
+    ('longsword', 'fg', 'walk', 'weapon/sword/longsword/walk/longsword.png', 64, None),
+    ('longsword', 'bg', 'slash', 'weapon/sword/longsword/attack_slash/behind/longsword.png', 192, None),
+    ('longsword', 'fg', 'slash', 'weapon/sword/longsword/attack_slash/longsword.png', 192, None),
+    ('longsword', 'bg', 'thrust', 'weapon/sword/longsword/attack_thrust/behind/longsword.png', 192, None),
+    ('longsword', 'fg', 'thrust', 'weapon/sword/longsword/attack_thrust/longsword.png', 192, None),
+    # V2 — Masse d'armes (wulax, bluecarrot16) et hache de guerre (BenCreating, bluecarrot16, castelonia)
+    ('mace', 'bg', 'walk', 'weapon/blunt/mace/universal_behind/walk/mace.png', 64, None),
+    ('mace', 'fg', 'walk', 'weapon/blunt/mace/walk/mace.png', 64, None),
+    ('mace', 'bg', 'slash', 'weapon/blunt/mace/attack_slash/behind/mace.png', 192, None),
+    ('mace', 'fg', 'slash', 'weapon/blunt/mace/attack_slash/mace.png', 192, None),
+    ('waraxe', 'bg', 'walk', 'weapon/blunt/waraxe/behind/walk/waraxe.png', 64, None),
+    ('waraxe', 'fg', 'walk', 'weapon/blunt/waraxe/walk/waraxe.png', 64, None),
+    ('waraxe', 'bg', 'slash', 'weapon/blunt/waraxe/attack_slash/behind/waraxe.png', 192, None),
+    ('waraxe', 'fg', 'slash', 'weapon/blunt/waraxe/attack_slash/waraxe.png', 192, None),
+    # V2 — Arbalète (drjamgo, bluecarrot16 ; CC0) : marche et tir (pose d'estoc)
+    ('crossbow', 'bg', 'walk', 'weapon/ranged/crossbow/background/walk/crossbow.png', 64, None),
+    ('crossbow', 'fg', 'walk', 'weapon/ranged/crossbow/foreground/walk/crossbow.png', 64, None),
+    ('crossbow', 'bg', 'thrust', 'weapon/ranged/crossbow/background/thrust/crossbow.png', 64, None),
+    ('crossbow', 'fg', 'thrust', 'weapon/ranged/crossbow/foreground/thrust/crossbow.png', 64, None),
+    # V2 — Bâton simple (Dr. Jamgo, bluecarrot16 ; CC0) : magie élémentaire (incantation)
+    ('staff', 'bg', 'walk', 'weapon/magic/simple/background/walk/simple.png', 64, None),
+    ('staff', 'fg', 'walk', 'weapon/magic/simple/foreground/walk/simple.png', 64, None),
+    ('staff', 'bg', 'spellcast', 'weapon/magic/simple/background/spellcast/simple.png', 64, None),
+    ('staff', 'fg', 'spellcast', 'weapon/magic/simple/foreground/spellcast/simple.png', 64, None),
+    ('staff', 'bg', 'thrust', 'weapon/magic/simple/background/thrust/simple.png', 64, None),
+    ('staff', 'fg', 'thrust', 'weapon/magic/simple/foreground/thrust/simple.png', 64, None),
+    # V2 — Bâton noueux sombre (magie occulte)
+    ('gnarled', 'bg', 'walk', 'weapon/magic/gnarled/universal/background/walk/dark.png', 64, None),
+    ('gnarled', 'fg', 'walk', 'weapon/magic/gnarled/universal/foreground/walk/dark.png', 64, None),
+    ('gnarled', 'bg', 'thrust', 'weapon/magic/gnarled/thrust/background/dark.png', 192, None),
+    ('gnarled', 'fg', 'thrust', 'weapon/magic/gnarled/thrust/foreground/dark.png', 192, None),
+    # V2 — Cotte de mailles (armure intermédiaire)
+    *[('chainmail', 'body', a, f'torso/chainmail/male/{a}.png', 64, None) for a in COLS],
     # Protections (cuir : wulax, bluecarrot16, JaidynReiman ; plaques : Napsio, JaidynReiman, bluecarrot16, bigbeargames, wulax)
     *[('leather', 'body', a, f'torso/armour/leather/male/{a}.png', 64, None) for a in COLS],
     *[('plate', 'body', a, f'torso/armour/plate/male/{a}.png', 64, None) for a in COLS],

@@ -22,25 +22,26 @@ export function emptyHotbar(): Hotbar {
 /** Types d'objets utiles en raccourci (les matériaux n'y vont jamais d'eux-mêmes). */
 export function isHotbarUseful(id: string): boolean {
   const k = item(id).kind;
-  return k === 'food' || k === 'consumable' || k === 'tool' || k === 'weapon';
+  return k === 'food' || k === 'consumable';
 }
 
-/** Objets qu'on peut affecter à la main à un raccourci (les protections aussi). */
+/** Objets qu'on peut affecter à la main à un raccourci (armes et protections aussi). */
 export function isHotbarAssignable(id: string): boolean {
-  return isHotbarUseful(id) || item(id).kind === 'armor';
+  const k = item(id).kind;
+  return isHotbarUseful(id) || k === 'weapon' || k === 'armor' || k === 'accessory';
 }
 
 /** Quantité disponible pour un raccourci (sac + objet équipé). */
 export function hotbarQty(g: Game, id: string): number {
   const e = g.player.equip;
   let n = countItem(g.player.inv, id);
-  for (const s of [e.weapon, e.tool, e.armor]) if (s && s.id === id) n += s.qty;
+  for (const s of [e.weapon, e.armor, e.accessory]) if (s && s.id === id) n += s.qty;
   return n;
 }
 
 export function isEquipped(g: Game, id: string): boolean {
   const e = g.player.equip;
-  return [e.weapon, e.tool, e.armor].some((s) => s && s.id === id);
+  return [e.weapon, e.armor, e.accessory].some((s) => s && s.id === id);
 }
 
 /** Affecte un objet à une case précise (choix du joueur). Retire le doublon éventuel. */
@@ -76,8 +77,7 @@ export function swapHotbar(g: Game, a: number, b: number): void {
 export function autoAssignHotbar(g: Game): boolean {
   const hb = g.hotbar;
   const ids: string[] = [];
-  const e = g.player.equip;
-  for (const s of [e.weapon, e.tool, ...g.player.inv]) if (s && !ids.includes(s.id)) ids.push(s.id);
+  for (const s of g.player.inv) if (s && !ids.includes(s.id)) ids.push(s.id);
   let changed = false;
   for (const id of ids) {
     if (!isHotbarUseful(id) || g.hotbarSeen.has(id)) continue;

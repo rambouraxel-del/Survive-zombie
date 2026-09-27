@@ -161,6 +161,171 @@ ITEMS = [  # LPC Items and game effects (Tuomo Untinen et al.) + graves
 ]
 
 
+# V2 — icônes supplémentaires ([LPC] Items and game effects), même feuille que ci-dessus
+ITEMS_V2 = [
+    ('i_knife', 'LPC Items And Effects/items1.png', 8, 0, 1, 1),
+    ('i_dagger', 'LPC Items And Effects/items1.png', 7, 0, 1, 1),
+    ('i_dagger_red', 'LPC Items And Effects/items1.png', 9, 7, 1, 1),
+    ('i_longsword', 'LPC Items And Effects/items1.png', 9, 5, 1, 1),
+    ('i_flamesword', 'LPC Items And Effects/items1.png', 15, 5, 1, 1),
+    ('i_waraxe', 'LPC Items And Effects/items1.png', 6, 7, 1, 1),
+    ('i_warhammer', 'LPC Items And Effects/items1.png', 10, 4, 1, 1),
+    ('i_longbow', 'LPC Items And Effects/items1.png', 5, 1, 1, 1),
+    ('i_crossbow', 'LPC Items And Effects/items1.png', 6, 0, 1, 1),
+    ('i_scepter_silver', 'LPC Items And Effects/items1.png', 14, 5, 1, 1),
+    ('i_scepter_red', 'LPC Items And Effects/items1.png', 14, 6, 1, 1),
+    ('i_book_dark', 'LPC Items And Effects/items1.png', 0, 9, 1, 1),
+    ('i_book_red', 'LPC Items And Effects/items1.png', 1, 9, 1, 1),
+    ('i_armor_plate', 'LPC Items And Effects/items1.png', 0, 3, 1, 1),
+    ('i_potion_red', 'LPC Items And Effects/items1.png', 3, 5, 1, 1),
+    ('i_potion_blue', 'LPC Items And Effects/items1.png', 4, 5, 1, 1),
+    ('i_potion_green', 'LPC Items And Effects/items1.png', 5, 5, 1, 1),
+    ('i_bomb', 'LPC Items And Effects/items1.png', 11, 7, 1, 1),
+    ('i_ring', 'LPC Items And Effects/items1.png', 13, 1, 1, 1),
+    ('i_amulet_red', 'LPC Items And Effects/items1.png', 13, 5, 1, 1),
+    ('i_amulet_purple', 'LPC Items And Effects/items1.png', 13, 6, 1, 1),
+    ('i_amulet_blue', 'LPC Items And Effects/items1.png', 4, 9, 1, 1),
+    ('i_claws', 'LPC Items And Effects/items1.png', 12, 6, 1, 1),
+    ('i_gem_red', 'LPC Items And Effects/items1.png', 12, 3, 1, 1),
+    ('i_gem_blue', 'LPC Items And Effects/items1.png', 12, 4, 1, 1),
+    ('i_gem_green', 'LPC Items And Effects/items1.png', 12, 5, 1, 1),
+    ('i_gem_white', 'LPC Items And Effects/items1.png', 15, 1, 1, 1),
+    ('i_trophy', 'LPC Items And Effects/items1.png', 9, 8, 1, 1),
+    ('i_banner', 'LPC Items And Effects/items1.png', 10, 8, 1, 1),
+    ('i_skull_green', 'LPC Items And Effects/items1.png', 2, 8, 1, 1),
+    ('i_herb', 'LPC Items And Effects/items1.png', 5, 8, 1, 1),
+    ('i_moss', 'LPC Items And Effects/items1.png', 8, 4, 1, 1),
+    ('i_sprout', 'LPC Items And Effects/items1.png', 6, 8, 1, 1),
+    ('i_key', 'LPC Items And Effects/items1.png', 0, 7, 1, 1),
+    ('i_scroll', 'LPC Items And Effects/items1.png', 15, 6, 1, 1),
+    ('i_helmet', 'LPC Items And Effects/items1.png', 1, 1, 1, 1),
+    ('i_shield', 'LPC Items And Effects/items1.png', 1, 7, 1, 1),
+    ('i_roast', 'LPC Items And Effects/items1.png', 8, 6, 1, 1),
+    ('i_apple', 'LPC Items And Effects/items1.png', 8, 5, 1, 1),
+    ('i_leather', 'LPC Items And Effects/items1.png', 11, 6, 1, 1),
+    # effets (même feuille d'effets que « ! » et le coup de lame)
+    ('fx_spark_0', 'LPC Items And Effects/effects.png', 8, 0, 1, 1),
+    ('fx_spark_1', 'LPC Items And Effects/effects.png', 9, 0, 1, 1),
+    ('fx_spark_2', 'LPC Items And Effects/effects.png', 10, 0, 1, 1),
+    ('fx_spark_3', 'LPC Items And Effects/effects.png', 11, 0, 1, 1),
+    ('fx_poison_0', 'LPC Items And Effects/effects.png', 12, 0, 1, 1),
+    ('fx_poison_1', 'LPC Items And Effects/effects.png', 13, 0, 1, 1),
+    ('fx_poison_2', 'LPC Items And Effects/effects.png', 14, 0, 1, 1),
+    ('fx_poison_3', 'LPC Items And Effects/effects.png', 15, 0, 1, 1),
+    ('fx_fire_0', 'LPC Items And Effects/effects.png', 17, 0, 1, 1),
+    ('fx_fire_1', 'LPC Items And Effects/effects.png', 18, 0, 1, 1),
+    ('fx_fire_2', 'LPC Items And Effects/effects.png', 19, 0, 1, 1),
+    ('fx_fire_3', 'LPC Items And Effects/effects.png', 17, 1, 1, 1),
+    ('fx_fire_4', 'LPC Items And Effects/effects.png', 18, 1, 1, 1),
+    ('fx_fire_5', 'LPC Items And Effects/effects.png', 19, 1, 1, 1),
+    ('fx_dark_0', 'LPC Items And Effects/effects.png', 0, 4, 1, 1),
+    ('fx_dark_1', 'LPC Items And Effects/effects.png', 1, 4, 1, 1),
+    ('fx_dark_2', 'LPC Items And Effects/effects.png', 2, 4, 1, 1),
+    ('fx_dark_3', 'LPC Items And Effects/effects.png', 3, 4, 1, 1),
+    ('fx_curse_0', 'LPC Items And Effects/effects.png', 7, 6, 1, 1),
+    ('fx_curse_1', 'LPC Items And Effects/effects.png', 8, 6, 1, 1),
+    ('fx_curse_2', 'LPC Items And Effects/effects.png', 9, 6, 1, 1),
+    ('fx_curse_3', 'LPC Items And Effects/effects.png', 10, 6, 1, 1),
+    ('fx_ice_0', 'LPC Items And Effects/effects.png', 13, 2, 1, 1),
+    ('fx_ice_1', 'LPC Items And Effects/effects.png', 14, 2, 1, 1),
+    ('fx_ice_2', 'LPC Items And Effects/effects.png', 15, 2, 1, 1),
+    ('fx_ice_3', 'LPC Items And Effects/effects.png', 16, 2, 1, 1),
+    ('fx_shock_0', 'LPC Items And Effects/effects.png', 0, 3, 1, 1),
+    ('fx_shock_1', 'LPC Items And Effects/effects.png', 1, 3, 1, 1),
+    ('fx_shock_2', 'LPC Items And Effects/effects.png', 2, 3, 1, 1),
+    ('fx_shock_3', 'LPC Items And Effects/effects.png', 3, 3, 1, 1),
+    ('fx_flame_0', 'LPC Items And Effects/effects.png', 11, 1, 1, 1),
+    ('fx_flame_1', 'LPC Items And Effects/effects.png', 12, 1, 1, 1),
+    ('fx_flame_2', 'LPC Items And Effects/effects.png', 13, 1, 1, 1),
+    ('fx_flame_3', 'LPC Items And Effects/effects.png', 14, 1, 1, 1),
+    ('fx_spirit_0', 'LPC Items And Effects/effects.png', 8, 2, 1, 1),
+    ('fx_spirit_1', 'LPC Items And Effects/effects.png', 9, 2, 1, 1),
+    ('fx_spirit_2', 'LPC Items And Effects/effects.png', 10, 2, 1, 1),
+    ('fx_blood_0', 'LPC Items And Effects/effects.png', 3, 5, 1, 1),
+    ('fx_blood_1', 'LPC Items And Effects/effects.png', 4, 5, 1, 1),
+    ('fx_blood_2', 'LPC Items And Effects/effects.png', 5, 5, 1, 1),
+    ('fx_heal', 'LPC Items And Effects/effects.png', 0, 7, 1, 1),
+    ('fx_rays_0', 'LPC Items And Effects/effects.png', 4, 4, 1, 1),
+    ('fx_rays_1', 'LPC Items And Effects/effects.png', 5, 4, 1, 1),
+    ('fx_rays_2', 'LPC Items And Effects/effects.png', 6, 4, 1, 1),
+]
+
+# V2 — décors des régions (packs de FreedomValley et LPC Revised), chemins préfixés fv: / el:
+PROPS = [
+    # LPC Trees (arbres morts et nus) — marais
+    ('tree_bare_a', 'fv:LPC Trees/trees-dead.png', 0, 3, 2, 4),
+    ('tree_bare_b', 'fv:LPC Trees/trees-dead.png', 2, 3, 2, 4),
+    ('tree_bare_c', 'fv:LPC Trees/trees-dead.png', 4, 3, 3, 4),
+    ('tree_bare_d', 'fv:LPC Trees/trees-dead.png', 10, 3, 3, 4),
+    ('tree_twisted', 'fv:LPC Trees/trees-dead.png', 12, 7, 3, 4),
+    ('tree_rotten', 'fv:LPC Trees/trees-dead.png', 22, 7, 4, 4),
+    ('tree_giant_dead', 'fv:LPC Trees/trees-dead.png', 0, 17, 3, 5),
+    # Roseaux (Daniel Eddeland)
+    ('reeds', 'fv:LPC Farming tilesets magic animations and UI elements/tilesets/reed.png', 0, 2, 1, 2),
+    ('reeds_water', 'fv:LPC Farming tilesets magic animations and UI elements/tilesets/reed.png', 0, 3, 1, 2),
+    # LPC Rocks (roches sombres, et ocres pour la carrière)
+    ('boulder_d', 'fv:LPC Rocks/rocks.png', 0, 8, 2, 2),
+    ('boulder_flat_d', 'fv:LPC Rocks/rocks.png', 2, 8, 2, 2),
+    ('menhir_d', 'fv:LPC Rocks/rocks.png', 5, 8, 1, 2),
+    ('stone_tall_d', 'fv:LPC Rocks/rocks.png', 4, 8, 1, 2),
+    ('rocks_pile_d', 'fv:LPC Rocks/rocks.png', 0, 10, 2, 2),
+    ('monolith_d', 'fv:LPC Rocks/rocks.png', 10, 8, 2, 3),
+    ('dolmen_d', 'fv:LPC Rocks/rocks.png', 12, 8, 4, 3),
+    ('rock_tower_d', 'fv:LPC Rocks/rocks.png', 16, 8, 2, 3),
+    ('stalagmite_a', 'fv:LPC Rocks/rocks.png', 16, 11, 1, 2),
+    ('stalagmite_b', 'fv:LPC Rocks/rocks.png', 17, 11, 1, 2),
+    ('rock_block_d', 'fv:LPC Rocks/rocks.png', 12, 12, 2, 2),
+    ('boulder_s', 'fv:LPC Rocks/rocks.png', 0, 24, 2, 2),
+    ('boulder_flat_s', 'fv:LPC Rocks/rocks.png', 2, 24, 2, 2),
+    ('menhir_s', 'fv:LPC Rocks/rocks.png', 5, 24, 1, 2),
+    ('rocks_pile_s', 'fv:LPC Rocks/rocks.png', 0, 26, 2, 2),
+    ('rock_tower_s', 'fv:LPC Rocks/rocks.png', 16, 24, 2, 3),
+    ('stalagmite_s', 'fv:LPC Rocks/rocks.png', 16, 27, 1, 2),
+    ('rock_small_s', 'fv:LPC Rocks/rocks.png', 6, 24, 1, 1),
+    # Mobilier (LPC house interior)
+    ('bed_house', 'fv:LPC house interior/interior.png', 14, 0, 1, 3),
+    ('cask', 'fv:LPC house interior/interior.png', 13, 0, 1, 2),
+    ('sacks', 'fv:LPC house interior/interior.png', 12, 0, 1, 2),
+    ('table_round', 'fv:LPC house interior/interior.png', 13, 2, 1, 1),
+    ('bookshelf', 'fv:LPC house interior/interior.png', 1, 6, 1, 2),
+    ('wardrobe', 'fv:LPC house interior/interior.png', 0, 6, 1, 2),
+    ('dresser', 'fv:LPC house interior/interior.png', 3, 6, 1, 2),
+    ('weapon_rack', 'fv:LPC house interior/interior.png', 6, 8, 1, 2),
+    ('barrels_big', 'fv:LPC house interior/interior.png', 1, 8, 2, 2),
+    ('armor_shelf', 'fv:LPC house interior/interior.png', 7, 3, 2, 1),
+    ('hearth', 'fv:LPC house interior/interior.png', 11, 2, 1, 3),
+    ('table_long', 'fv:LPC house interior/interior.png', 0, 12, 2, 1),
+    ('floor_wood', 'fv:LPC house interior/interior.png', 0, 3, 1, 1),
+    # Éléments de donjon (LPC Dungeon Elements)
+    ('cauldron_black', 'fv:LPC Dungeon Elements/dungeonex.png', 1, 0, 1, 1),
+    ('bench_dun', 'fv:LPC Dungeon Elements/dungeonex.png', 5, 1, 3, 1),
+    ('bed_dun', 'fv:LPC Dungeon Elements/dungeonex.png', 0, 3, 2, 1),
+    ('skeleton_hang', 'fv:LPC Dungeon Elements/dungeonex.png', 0, 8, 1, 2),
+    ('skulls_pile', 'fv:LPC Dungeon Elements/dungeonex.png', 1, 8, 2, 2),
+    ('portcullis', 'fv:LPC Dungeon Elements/dungeonex.png', 8, 5, 1, 3),
+    ('cobweb', 'fv:LPC Dungeon Elements/dungeonex.png', 9, 4, 1, 1),
+    # Château (LPC base : murs de château) — porte et arche
+    ('arch_gate', 'fv:LPC Base Assets/tiles/castlewalls.png', 0, 11, 4, 4),
+    ('door_red', 'fv:LPC Base Assets/tiles/castlewalls.png', 4, 6, 2, 3),
+    ('wall_torch', 'fv:LPC Base Assets/tiles/castlewalls.png', 0, 7, 1, 1),
+    # Falaises : entrée de grotte, échelle (LPC Revised)
+    ('cave_mouth', 'el:Terrain/cliff_summer.png', 6, 9, 2, 3),
+    ('ladder', 'fv:LPC Base Assets/tiles/mountains.png', 9, 4, 1, 3),
+    # Pont de bois (LPC Revised)
+    ('bridge_deck', 'el:Structure/Bridges/Wood Bridge A - Rails.png', 1, 1, 1, 1),
+    # Éléments de donjon (LPC Revised)
+    ('web_big', 'el:Objects/Small Items/Dungeon Elements.png', 1, 0, 1, 2),
+    ('chains', 'el:Objects/Small Items/Dungeon Elements.png', 1, 3, 1, 1),
+    ('puddle_green', 'el:Objects/Small Items/Dungeon Elements.png', 0, 2, 1, 1),
+    ('table_rough', 'el:Objects/Furniture/Table, Rough Wood.png', 0, 0, 2, 2),
+    ('trough', 'el:Objects/Furniture/Trough.png', 0, 0, 2, 1),
+    # Nœuds de récolte V2 (LPC Revised)
+    ('ore_crystal', 'el:Objects/Small Items/Ores & Ingots/Ore, Silver.png', 0, 0, 1, 1),
+    ('glowcap_node', 'el:Terrain/mushrooms.png', 2, 3, 1, 1),
+    ('mush_pale', 'el:Terrain/mushrooms.png', 1, 3, 1, 1),
+]
+
+
 OFFSETS = {}
 
 
@@ -211,9 +376,10 @@ def pack(frames, out_png, out_json, image_name):
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     w = pack([crop(E, s) for s in WORLD], os.path.join(OUT, 'world.png'), os.path.join(OUT, 'world.json'), 'world.png')
-    i = pack([crop(FVI, s) for s in ITEMS], os.path.join(OUT, 'items.png'), os.path.join(OUT, 'items.json'), 'items.png')
+    i = pack([crop(FVI, s) for s in ITEMS + ITEMS_V2], os.path.join(OUT, 'items.png'), os.path.join(OUT, 'items.json'), 'items.png')
+    pr = pack([crop(FVI if s[1].startswith('fv:') else E, (s[0], s[1][3:]) + tuple(s[2:])) for s in PROPS], os.path.join(OUT, 'props.png'), os.path.join(OUT, 'props.json'), 'props.png')
     with open(os.path.join(OUT, 'offsets.json'), 'w') as fh:
         json.dump(OFFSETS, fh)
     with open(os.path.join(OUT, 'frame_sources.json'), 'w') as fh:
-        json.dump({'world.png': w, 'items.png': i}, fh, indent=1, ensure_ascii=False)
-    print(len(w), len(i))
+        json.dump({'world.png': w, 'items.png': i, 'props.png': pr}, fh, indent=1, ensure_ascii=False)
+    print(len(w), len(i), len(pr))

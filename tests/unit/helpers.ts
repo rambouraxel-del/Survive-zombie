@@ -1,9 +1,9 @@
 import { Game } from '../../src/sim/game';
-import type { InputState } from '../../src/sim/types';
+import { newInput, type InputState } from '../../src/sim/types';
 import { TILE } from '../../src/config/balance';
 
 export function idle(): InputState {
-  return { mx: 0, my: 0, sprint: false, attack: false, interact: false, dodge: false, attackTap: false, interactTap: false };
+  return newInput();
 }
 
 export function run(g: Game, seconds: number, input: InputState = idle()): void {
@@ -27,6 +27,5 @@ export function teleport(g: Game, tx: number, ty: number): void {
 }
 
 export function freshGame(seed = 12345): Game {
-  const g = Game.newGame(seed);
-  return g;
+  return Game.newGame(seed);
 }

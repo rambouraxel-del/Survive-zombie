@@ -1,21 +1,51 @@
-// Actions du joueur hors déplacement : fabrication, objets, construction, repos.
-import { DAY, PLAYER, TILE } from '../config/balance';
+// Actions du joueur hors combat : fabrication, objets, équipement, camp (construction,
+// déplacement, démolition), enchantement, repos, choix de l'arme de départ, raccourcis.
+import { PLAYER, TILE } from '../config/balance';
 import { BUILDING_BY_ID, buildingStats } from '../data/buildings';
+import { ENCHANT_BY_ID } from '../data/enchants';
 import { item, type EquipSlot } from '../data/items';
 import { RECIPE_BY_ID, STATION_NAMES, type Recipe } from '../data/recipes';
 import type { Game } from './game';
-import {
-  addItem, cloneSlots, countItem, hasAll, moveBetween, quickTransfer, removeAll, type Slots,
-} from './inventory';
+import { addItem, cloneSlots, countItem, moveBetween, quickTransfer, removeItem, type Slots, type Stack } from './inventory';
 import { hotbarQty, isEquipped } from './hotbar';
+import { canEquipItem, currentFamily, maxHp, type Check } from './profile';
+import { throwBomb } from './combat';
+import type { Building } from '../world/world';
 
-export interface Check {
-  ok: boolean;
-  reason?: string;
+export type { Check };
+
+// ------------------------------------------------------------ réserves du camp
+/** Quantité utilisable : le sac, plus les coffres du camp quand on y est. */
+export function available(g: Game, id: string): number {
+  let n = countItem(g.player.inv, id);
+  for (const c of g.campChests()) n += countItem(c, id);
+  return n;
+}
+
+/** Retire un coût : le sac d'abord, puis les coffres du camp (tout ou rien). */
+export function payCost(g: Game, cost: Record<string, number>, times = 1): boolean {
+  for (const [id, n] of Object.entries(cost)) if (available(g, id) < n * times) return false;
+  const chests = g.campChests();
+  for (const [id, n] of Object.entries(cost)) {
+    let left = n * times;
+    const inBag = Math.min(left, countItem(g.player.inv, id));
+    if (inBag) removeItem(g.player.inv, id, inBag);
+    left -= inBag;
+    for (const c of chests) {
+      if (left <= 0) break;
+      const k = Math.min(left, countItem(c, id));
+      if (k) removeItem(c, id, k);
+      left -= k;
+    }
+  }
+  return true;
+}
+
+export function missingText(g: Game, cost: Record<string, number>, times = 1): string {
+  return Object.entries(cost).filter(([id, n]) => available(g, id) < n * times).map(([id, n]) => `${n * times - available(g, id)} ${item(id).name}`).join(', ');
 }
 
 // ------------------------------------------------------------ fabrication
-/** Quantité produite, selon la station (l'établi renforcé donne une planche de plus). */
 export function recipeQty(g: Game, r: Recipe): number {
   if (r.id === 'r_planks' && g.stationLevel('workbench') >= 2) return r.qty + 1;
   return r.qty;
@@ -23,19 +53,18 @@ export function recipeQty(g: Game, r: Recipe): number {
 
 export function canCraft(g: Game, r: Recipe, times = 1): Check {
   if (!g.nearStation(r.station)) return { ok: false, reason: `Nécessite : ${STATION_NAMES[r.station]} à proximité` };
-  const missing = Object.entries(r.inputs).filter(([id, n]) => countItem(g.player.inv, id) < n * times);
-  if (missing.length) return { ok: false, reason: `Manque : ${missing.map(([id, n]) => `${n * times - countItem(g.player.inv, id)} ${item(id).name}`).join(', ')}` };
-  // atomique : on simule sur une copie
+  const miss = missingText(g, r.inputs, times);
+  if (miss) return { ok: false, reason: `Manque : ${miss}` };
+  // place dans le sac pour le résultat (les ingrédients du sac sont retirés d'abord)
   const test = cloneSlots(g.player.inv);
-  for (let i = 0; i < times; i++) removeAll(test, r.inputs);
-  if (addItem(test, r.output, recipeQty(g, r) * times) > 0) return { ok: false, reason: 'Inventaire plein : libérez de la place' };
+  for (const [id, n] of Object.entries(r.inputs)) removeItem(test, id, Math.min(n * times, countItem(test, id)));
+  if (addItem(test, r.output, recipeQty(g, r) * times) > 0) return { ok: false, reason: 'Sac plein : libérez de la place' };
   return { ok: true };
 }
 
-/** Nombre maximal de fabrications possibles (ingrédients et place dans le sac). */
 export function maxCraftable(g: Game, r: Recipe, cap = 99): number {
   if (!g.nearStation(r.station)) return 0;
-  let n = Math.min(cap, ...Object.entries(r.inputs).map(([id, k]) => Math.floor(countItem(g.player.inv, id) / k)));
+  let n = Math.min(cap, ...Object.entries(r.inputs).map(([id, k]) => Math.floor(available(g, id) / k)));
   while (n > 0 && !canCraft(g, r, n).ok) n--;
   return n;
 }
@@ -50,107 +79,150 @@ export function craft(g: Game, recipeId: string, times = 1): Check {
     return c;
   }
   const qty = recipeQty(g, r) * times;
-  const test = cloneSlots(g.player.inv);
-  for (let i = 0; i < times; i++) removeAll(test, r.inputs);
-  addItem(test, r.output, qty);
-  g.player.inv = test; // validation en une seule fois (tout ou rien)
+  payCost(g, r.inputs, times);
+  addItem(g.player.inv, r.output, qty);
   g.stats.crafted[r.output] = (g.stats.crafted[r.output] ?? 0) + qty;
   g.stats.craftedBy[r.id] = (g.stats.craftedBy[r.id] ?? 0) + times;
-  // premier outil / arme / protection : équipé automatiquement si l'emplacement est libre
-  const slot = item(r.output).slot;
-  if (slot && !g.player.equip[slot]) {
+  const d = item(r.output);
+  if (d.slot && !g.player.equip[d.slot] && canEquipItem(g, r.output).ok) {
     const idx = g.player.inv.findIndex((s) => s && s.id === r.output);
-    if (idx >= 0) {
-      g.player.equip[slot] = g.player.inv[idx];
-      g.player.inv[idx] = null;
-      g.toast(`${item(r.output).name} équipé(e).`, 'info');
-    }
+    if (idx >= 0) equipSlot(g, idx);
   }
   g.emit({ type: 'sound', key: 'craft' });
-  g.toast(`Fabriqué : ${qty > 1 ? `${qty} × ` : ''}${item(r.output).name}`, 'good');
+  g.toast(`Fabriqué : ${qty > 1 ? `${qty} × ` : ''}${d.name}`, 'good');
+  g.log(`Fabriqué : ${qty > 1 ? `${qty} × ` : ''}${d.name}.`);
   return { ok: true };
 }
 
-// ------------------------------------------------------------ nourriture
+// ------------------------------------------------------------ nourriture et consommables
 export interface FoodGain {
   nominal: number;
   effective: number;
   surplus: number;
-  heal: number; // PV réellement rendus
+  heal: number;
   regen: boolean;
   useful: boolean;
 }
 
-/** Gain réel d'un aliment selon la faim et la santé actuelles. */
 export function foodGain(g: Game, id: string): FoodGain | null {
   const f = item(id).food;
   if (!f) return null;
   const p = g.player;
   const effective = Math.max(0, Math.min(PLAYER.maxHunger, p.hunger + f.hunger) - p.hunger);
-  const heal = f.health ? Math.max(0, Math.min(PLAYER.maxHealth, p.hp + f.health) - p.hp) : 0;
-  const regen = !!f.regen && p.hp < PLAYER.maxHealth;
+  const mhp = maxHp(g);
+  const heal = f.health ? Math.max(0, Math.min(mhp, p.hp + f.health) - p.hp) : 0;
+  const regen = !!f.regen && p.hp < mhp;
   const e = Math.round(effective);
   return { nominal: f.hunger, effective: e, surplus: f.hunger - e, heal: Math.round(heal), regen, useful: e >= 1 || heal >= 1 || regen };
 }
 
-// ------------------------------------------------------------ objets
+/** Effet réel d'un consommable (soin, récupération) : sert aussi à bloquer un usage inutile. */
+export function useGain(g: Game, id: string): { text: string; useful: boolean } | null {
+  const u = item(id).use;
+  if (!u) return null;
+  const p = g.player;
+  if (u.heal) {
+    const n = Math.round(Math.max(0, Math.min(maxHp(g), p.hp + u.heal) - p.hp));
+    return { text: `+${n} PV`, useful: n >= 1 };
+  }
+  if (u.restore) {
+    const n = Math.round(PLAYER.maxStamina - p.stamina + PLAYER.maxMana - p.mana);
+    return { text: `endurance et mana au maximum, récupération accrue 20 s`, useful: n >= 10 || p.boostT <= 0 };
+  }
+  if (u.bomb) return { text: `${u.bomb.damage} dégâts de zone`, useful: !g.atCamp };
+  return null;
+}
+
 export function useSlot(g: Game, idx: number): Check {
   const p = g.player;
   const st = p.inv[idx];
   if (!st) return { ok: false };
   const d = item(st.id);
   if (d.food) {
-    // aucune utilité (faim au maximum, pas de soin utile) : on ne gaspille pas l'aliment
-    if (!foodGain(g, st.id)!.useful) {
+    const gain = foodGain(g, st.id)!;
+    if (!gain.useful) {
       g.toast('Vous n’avez pas faim.', 'info');
       return { ok: false, reason: 'Pas faim' };
     }
-    const gain = foodGain(g, st.id)!;
     p.hunger = Math.min(PLAYER.maxHunger, p.hunger + d.food.hunger);
-    if (d.food.health) p.hp = Math.min(PLAYER.maxHealth, p.hp + d.food.health);
+    if (d.food.health) p.hp = Math.min(maxHp(g), p.hp + d.food.health);
     if (d.food.regen) {
       p.regenT = 60;
       p.regenRate = d.food.regen;
     }
-    st.qty--;
-    if (st.qty <= 0) p.inv[idx] = null;
+    consume(p.inv, idx);
     g.stats.ate++;
     g.emit({ type: 'sound', key: 'eat' });
     g.emit({ type: 'float', x: p.x, y: p.y - 46, text: `+${gain.effective} faim${gain.heal ? ` · +${gain.heal} PV` : ''}`, color: '#f5d76e' });
     return { ok: true };
   }
-  if (d.heal) {
-    if (p.hp >= PLAYER.maxHealth) {
-      g.toast('Vous n’êtes pas blessé.', 'info');
-      return { ok: false };
+  if (d.use) {
+    const gain = useGain(g, st.id)!;
+    if (!gain.useful) {
+      g.toast(d.use.bomb ? 'Pas de bombe au camp.' : d.use.heal ? 'Vous n’êtes pas blessé.' : 'Endurance et mana sont déjà au maximum.', 'info');
+      return { ok: false, reason: 'Inutile' };
     }
-    p.healT = 4;
-    p.healRate = d.heal / 4;
-    st.qty--;
-    if (st.qty <= 0) p.inv[idx] = null;
-    g.emit({ type: 'sound', key: 'pick_0' });
+    if (d.use.heal) {
+      p.healT = d.use.healTime ?? 3;
+      p.healRate = d.use.heal / p.healT;
+      g.emit({ type: 'fx', kind: 'heal', x: p.x, y: p.y - 30 });
+      g.emit({ type: 'sound', key: 'bottle' });
+    }
+    if (d.use.restore) {
+      p.stamina = PLAYER.maxStamina;
+      p.mana = PLAYER.maxMana;
+      p.boostT = 20;
+      g.emit({ type: 'sound', key: 'bottle' });
+    }
+    if (d.use.bomb) throwBomb(g, d.use.bomb.damage, d.use.bomb.radius, d.use.bomb.knockback);
+    consume(p.inv, idx);
     return { ok: true };
   }
   if (d.slot) return equipSlot(g, idx);
-  if (d.kind === 'quest') {
-    g.toast('Un fragment du sceau. À déposer au sanctuaire, tout au nord.', 'info');
-    return { ok: false };
-  }
   g.toast(d.desc, 'info');
   return { ok: false };
 }
 
+function consume(slots: Slots, idx: number): void {
+  const st = slots[idx]!;
+  st.qty--;
+  if (st.qty <= 0) slots[idx] = null;
+}
+
+// ------------------------------------------------------------ équipement
 export function equipSlot(g: Game, idx: number): Check {
   const p = g.player;
   const st = p.inv[idx];
   if (!st) return { ok: false };
-  const slot = item(st.id).slot;
-  if (!slot) return { ok: false, reason: 'Ne s’équipe pas' };
-  const prev = p.equip[slot];
-  p.equip[slot] = st;
+  const d = item(st.id);
+  if (!d.slot) return { ok: false, reason: 'Ne s’équipe pas' };
+  const c = canEquipItem(g, st.id);
+  if (!c.ok) {
+    g.toast(c.reason!, 'warn');
+    g.emit({ type: 'sound', key: 'error' });
+    return c;
+  }
+  const prev = p.equip[d.slot];
+  const prevFam = currentFamily(g);
+  p.equip[d.slot] = st;
   p.inv[idx] = prev; // échange : rien n'est perdu
-  g.emit({ type: 'sound', key: 'pick_1' });
+  if (d.slot === 'weapon') onWeaponChanged(g, prevFam);
+  g.emit({ type: 'sound', key: d.slot === 'weapon' ? 'sword_draw' : 'chain' });
   return { ok: true };
+}
+
+/** Changement d'arme (autorisé partout, même en combat) : rien n'est réinitialisé. */
+function onWeaponChanged(g: Game, prevFam: ReturnType<typeof currentFamily>): void {
+  const p = g.player;
+  const fam = currentFamily(g);
+  if (fam !== prevFam) {
+    p.pendingHit = 0;
+    p.combo = null;
+    p.parryT = 0;
+    if (fam !== 'occult') g.allies = [];
+    if (fam === 'crossbow' && prevFam !== 'crossbow' && !p.xbowLoaded) p.reloadT = 0;
+  }
+  p.attackCd = Math.max(p.attackCd, 0.25);
 }
 
 export function unequip(g: Game, slot: EquipSlot): Check {
@@ -159,21 +231,28 @@ export function unequip(g: Game, slot: EquipSlot): Check {
   if (!st) return { ok: false };
   const free = p.inv.findIndex((s) => !s);
   if (free < 0) {
-    g.toast('Inventaire plein : impossible de retirer cet équipement.', 'warn');
-    return { ok: false, reason: 'Inventaire plein' };
+    g.toast('Sac plein : impossible de retirer cet équipement.', 'warn');
+    return { ok: false, reason: 'Sac plein' };
   }
+  const prevFam = currentFamily(g);
   p.inv[free] = st;
   p.equip[slot] = null;
+  if (slot === 'weapon') onWeaponChanged(g, prevFam);
   return { ok: true };
+}
+
+/** Sélecteur rapide : équipe l'arme choisie (depuis le sac). */
+export function selectWeapon(g: Game, invIdx: number): Check {
+  return equipSlot(g, invIdx);
 }
 
 export function dropSlot(g: Game, idx: number): Check {
   const p = g.player;
   const st = p.inv[idx];
   if (!st) return { ok: false };
-  if (item(st.id).kind === 'quest') {
-    g.toast('Un fragment du sceau ne peut pas être jeté.', 'warn');
-    return { ok: false, reason: 'Objet de quête' };
+  if (item(st.id).unique || item(st.id).kind === 'component') {
+    g.toast('Objet précieux : rangez-le dans un coffre du camp plutôt que de le jeter.', 'warn');
+    return { ok: false, reason: 'Objet précieux' };
   }
   p.inv[idx] = null;
   g.dropNear(p.x + p.aimX * 18, p.y + p.aimY * 18, [st]);
@@ -183,31 +262,6 @@ export function dropSlot(g: Game, idx: number): Check {
 
 export function moveSlot(g: Game, a: number, b: number): void {
   moveBetween(g.player.inv, a, g.player.inv, b);
-}
-
-/** Coût de réparation d'un objet (moitié prix à l'établi renforcé, au moins 1). */
-export function itemRepairCost(g: Game, id: string): Record<string, number> | null {
-  const r = item(id).repair;
-  if (!r) return null;
-  if (r.station !== 'workbench' || g.stationLevel('workbench') < 2) return r.cost;
-  return Object.fromEntries(Object.entries(r.cost).map(([k, n]) => [k, Math.max(1, Math.ceil(n / 2))]));
-}
-
-export function repairItem(g: Game, where: EquipSlot | number): Check {
-  const p = g.player;
-  const st = typeof where === 'number' ? p.inv[where] : p.equip[where];
-  if (!st) return { ok: false };
-  const d = item(st.id);
-  if (!d.repair || d.durability === undefined) return { ok: false, reason: 'Ne se répare pas' };
-  if ((st.dur ?? d.durability) >= d.durability) return { ok: false, reason: 'Déjà en bon état' };
-  if (!g.nearStation(d.repair.station)) return { ok: false, reason: `Nécessite : ${STATION_NAMES[d.repair.station]} à proximité` };
-  const cost = itemRepairCost(g, st.id)!;
-  if (!hasAll(p.inv, cost)) return { ok: false, reason: `Manque : ${Object.entries(cost).map(([id, n]) => `${n} ${item(id).name}`).join(', ')}` };
-  removeAll(p.inv, cost);
-  st.dur = d.durability;
-  g.emit({ type: 'sound', key: 'craft' });
-  g.toast(`${d.name} réparé(e).`, 'good');
-  return { ok: true };
 }
 
 // ------------------------------------------------------------ conteneurs
@@ -222,43 +276,50 @@ export function containerSlots(g: Game): Slots | null {
 export function containerName(g: Game): string {
   const c = g.openContainer;
   if (!c) return '';
-  if (c.kind === 'obj') return g.world.objects[c.id]?.label ?? 'Conteneur';
-  if (c.kind === 'building') return 'Coffre';
+  if (c.kind === 'obj') return g.world.objects[c.id]?.label ?? 'Coffre';
+  if (c.kind === 'building') {
+    const b = g.world.buildings.get(c.id);
+    return b ? buildingStats(b.type, b.level).name : 'Coffre';
+  }
   return 'Sac';
 }
 
-/** Vérifie que le conteneur ouvert est toujours à portée. */
-export function containerInRange(g: Game): boolean {
+function afterContainerChange(g: Game): void {
   const c = g.openContainer;
-  if (!c) return false;
-  const p = g.player;
-  let x = 0;
-  let y = 0;
-  if (c.kind === 'obj') {
+  if (c?.kind === 'obj') {
     const o = g.world.objects[c.id];
-    x = (o.fx + o.fw / 2) * TILE;
-    y = (o.fy + o.fh / 2) * TILE;
-  } else if (c.kind === 'building') {
-    const b = g.world.buildings.get(c.id);
-    if (!b) return false;
-    ({ x, y } = g.world.buildingCenter(b));
-  } else {
-    const b = g.world.bags.get(c.id);
-    if (!b) return false;
-    x = b.x;
-    y = b.y;
+    if (o) g.recordChest(o);
   }
-  return Math.hypot(p.x - x, p.y - y) < 3 * TILE;
+  if (c?.kind === 'bag') {
+    const bag = g.world.bags.get(c.id);
+    if (bag && bag.items.every((s) => !s)) {
+      g.world.bags.delete(c.id);
+      g.openContainer = null;
+      g.emit({ type: 'bagsChanged' });
+    }
+  }
 }
 
 export function takeFromContainer(g: Game, idx: number): number {
   const slots = containerSlots(g);
   if (!slots) return 0;
-  const before = slots[idx]?.qty ?? 0;
+  const st = slots[idx];
+  if (!st) return 0;
+  const before = st.qty;
+  const id = st.id;
   const n = quickTransfer(slots, idx, g.player.inv);
-  if (before > 0 && n < before) g.toast('Inventaire plein.', 'warn');
-  cleanupBag(g);
+  if (n < before) g.toast('Sac plein.', 'warn');
+  trackLoot(g, id, n);
+  afterContainerChange(g);
   return n;
+}
+
+/** Objets pris dans un coffre d'expédition : comptés comme ressources de sortie. */
+function trackLoot(g: Game, id: string, n: number): void {
+  const run = g.run;
+  if (!run || run.kind !== 'farm' || n <= 0 || g.openContainer?.kind !== 'obj') return;
+  const k = item(id).kind;
+  if (k === 'resource' || k === 'rare' || k === 'food') run.gains[id] = (run.gains[id] ?? 0) + n;
 }
 
 export function putInContainer(g: Game, idx: number): number {
@@ -266,12 +327,9 @@ export function putInContainer(g: Game, idx: number): number {
   if (!slots) return 0;
   const st = g.player.inv[idx];
   if (!st) return 0;
-  if (item(st.id).kind === 'quest') {
-    g.toast('Gardez les fragments sur vous.', 'warn');
-    return 0;
-  }
   const n = quickTransfer(g.player.inv, idx, slots);
-  if (n === 0) g.toast('Ce conteneur est plein.', 'warn');
+  if (n === 0) g.toast('Ce coffre est plein.', 'warn');
+  afterContainerChange(g);
   return n;
 }
 
@@ -280,68 +338,119 @@ export function takeAll(g: Game): void {
   if (!slots) return;
   let blocked = false;
   for (let i = 0; i < slots.length; i++) {
-    if (!slots[i]) continue;
-    quickTransfer(slots, i, g.player.inv);
+    const st = slots[i];
+    if (!st) continue;
+    const id = st.id;
+    const n = quickTransfer(slots, i, g.player.inv);
+    trackLoot(g, id, n);
     if (slots[i]) blocked = true;
   }
-  if (blocked) g.toast('Inventaire plein : une partie reste dans le conteneur.', 'warn');
+  if (blocked) g.toast('Sac plein : une partie reste dans le coffre.', 'warn');
   g.emit({ type: 'sound', key: 'pick_1' });
-  cleanupBag(g);
+  afterContainerChange(g);
 }
 
-function cleanupBag(g: Game): void {
-  const c = g.openContainer;
-  if (c && c.kind === 'bag') {
-    const bag = g.world.bags.get(c.id);
-    if (bag && bag.items.every((s) => !s)) {
-      g.world.bags.delete(c.id);
-      if (g.deathBagId === c.id) g.deathBagId = -1;
-      g.openContainer = null;
-      g.emit({ type: 'bagsChanged' });
+/** Range tout le sac (sauf l'équipement et les raccourcis de soin) dans le coffre ouvert. */
+export function depositAll(g: Game): number {
+  const slots = containerSlots(g);
+  if (!slots) return 0;
+  let n = 0;
+  g.player.inv.forEach((st, i) => {
+    if (!st) return;
+    const k = item(st.id).kind;
+    if (k === 'resource' || k === 'rare' || k === 'component') n += quickTransfer(g.player.inv, i, slots);
+  });
+  if (n) g.emit({ type: 'sound', key: 'pick_1' });
+  afterContainerChange(g);
+  return n;
+}
+
+// ------------------------------------------------------------ camp : construction
+function whereOk(g: Game, type: string): boolean {
+  const w = BUILDING_BY_ID[type].where;
+  if (g.world === g.campWorld) return w === 'camp' || w === 'both';
+  if (g.world === g.houseWorld) return w === 'house' || w === 'both';
+  return false;
+}
+
+/** Accès garanti : portes, poteau de départ, râtelier et installations restent atteignables. */
+function accessOk(g: Game): boolean {
+  const w = g.world;
+  const seen = new Uint8Array(w.w * w.h);
+  const q: number[] = [];
+  const sx = Math.floor(g.player.x / TILE);
+  const sy = Math.floor(g.player.y / TILE);
+  const start = w.passableForPlayer(sx, sy) ? [sx, sy] : [w.start.x, w.start.y];
+  q.push(w.idx(start[0], start[1]));
+  seen[q[0]] = 1;
+  while (q.length) {
+    const i = q.pop()!;
+    const x = i % w.w;
+    const y = (i - x) / w.w;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (!w.inBounds(nx, ny)) continue;
+      const j = w.idx(nx, ny);
+      if (seen[j] || !w.passableForPlayer(nx, ny)) continue;
+      seen[j] = 1;
+      q.push(j);
     }
   }
+  const reach = (x0: number, y0: number, ww: number, hh: number) => {
+    for (let y = y0 - 1; y <= y0 + hh; y++)
+      for (let x = x0 - 1; x <= x0 + ww; x++) {
+        const inside = x >= x0 && x < x0 + ww && y >= y0 && y < y0 + hh;
+        if (w.inBounds(x, y) && (!inside || w.passableForPlayer(x, y)) && seen[w.idx(x, y)]) return true;
+      }
+    return false;
+  };
+  for (const o of w.objects) if ((o.type === 'door' || o.type === 'travel' || o.type === 'rack') && !reach(o.fx, o.fy, o.fw, o.fh)) return false;
+  for (const b of w.buildings.values()) {
+    const d = BUILDING_BY_ID[b.type];
+    if ((d.station || d.storage || d.rest) && !reach(b.x, b.y, d.w, d.h)) return false;
+  }
+  return true;
 }
 
-// ------------------------------------------------------------ construction
-export function canPlace(g: Game, type: string, tx: number, ty: number): Check {
+export function canPlace(g: Game, type: string, tx: number, ty: number, moving?: Building): Check {
   const d = BUILDING_BY_ID[type];
   const w = g.world;
   const p = g.player;
-  if (!hasAll(p.inv, d.cost)) return { ok: false, reason: `Manque : ${Object.entries(d.cost).filter(([id, n]) => countItem(p.inv, id) < n).map(([id, n]) => `${n - countItem(p.inv, id)} ${item(id).name}`).join(', ')}` };
+  if (!g.atCamp) return { ok: false, reason: 'Constructions au camp et dans la maison seulement' };
+  if (!whereOk(g, type)) return { ok: false, reason: d.where === 'house' ? 'Se place dans la maison' : 'Se place au camp, dehors' };
+  if (!moving) {
+    const miss = missingText(g, d.cost);
+    if (miss) return { ok: false, reason: `Manque : ${miss}` };
+  }
   const cx = (tx + d.w / 2) * TILE;
   const cy = (ty + d.h / 2) * TILE;
   if (Math.hypot(cx - p.x, cy - p.y) > PLAYER.buildRange) return { ok: false, reason: 'Trop loin' };
   for (let y = ty; y < ty + d.h; y++)
     for (let x = tx; x < tx + d.w; x++) {
-      if (!w.inBounds(x, y) || x < 1 || y < 1 || x >= w.w - 1 || y >= w.h - 1) return { ok: false, reason: 'Hors de la carte' };
+      if (!w.inBounds(x, y) || x < 1 || y < 1 || x >= w.w - 1 || y >= w.h - 1) return { ok: false, reason: 'Hors des limites' };
       const i = w.idx(x, y);
-      if (w.reserved[i]) return { ok: false, reason: 'Zone protégée' };
-      if (w.buildingAt[i] >= 0) return { ok: false, reason: 'Déjà construit ici' };
+      if (w.reserved[i]) return { ok: false, reason: 'Emplacement protégé (passage ou élément fixe)' };
+      const other = w.buildingAt[i];
+      if (other >= 0 && other !== moving?.id) return { ok: false, reason: 'Déjà occupé' };
+      if (w.terrainBlocked(x, y)) return { ok: false, reason: 'Terrain impraticable' };
       const o = w.objectAtTile(x, y);
-      if (o && !o.removed) return { ok: false, reason: o.type === 'note' || o.type === 'altar' || o.type === 'sanctuary' ? 'Objet important ici' : 'Emplacement occupé' };
+      if (o && !o.depleted) return { ok: false, reason: 'Emplacement occupé' };
       if (d.needsGrass && !w.isGrassTile(x, y)) return { ok: false, reason: 'Doit être posé sur l’herbe' };
     }
   const x0 = tx * TILE;
   const y0 = ty * TILE;
   const x1 = (tx + d.w) * TILE;
   const y1 = (ty + d.h) * TILE;
-  const overlaps = (x: number, y: number, r: number) => x + r > x0 && x - r < x1 && y + r * 0.4 > y0 && y - r * 0.6 < y1;
-  if (d.blocks && !d.playerPasses && overlaps(p.x, p.y, PLAYER.radius)) return { ok: false, reason: 'Vous êtes sur l’emplacement' };
-  for (const e of g.enemies) if (e.dying <= 0 && overlaps(e.x, e.y, 10)) return { ok: false, reason: 'Un ennemi gêne' };
-  for (const b of w.bags.values()) if (overlaps(b.x, b.y, 8)) return { ok: false, reason: 'Un sac est au sol ici' };
-  // accès : au moins une case libre autour pour les constructions utilisables
-  if (d.station || d.storage || d.spawnPoint) {
-    let access = false;
-    for (let y = ty - 1; y <= ty + d.h && !access; y++)
-      for (let x = tx - 1; x <= tx + d.w; x++) {
-        const inside = x >= tx && x < tx + d.w && y >= ty && y < ty + d.h;
-        if (!inside && w.passableForPlayer(x, y)) {
-          access = true;
-          break;
-        }
-      }
-    if (!access) return { ok: false, reason: 'L’accès serait bloqué' };
-  }
+  if (d.blocks && p.x + PLAYER.radius > x0 && p.x - PLAYER.radius < x1 && p.y + 4 > y0 && p.y - 6 < y1) return { ok: false, reason: 'Vous êtes sur l’emplacement' };
+  // essai : l'accès aux portes et installations doit rester libre
+  const temp = { id: -99, type, x: tx, y: ty } as Building;
+  if (moving) w.unstampBuilding(moving);
+  w.buildings.set(temp.id, temp);
+  w.stampBuilding(temp);
+  const ok = accessOk(g);
+  w.unstampBuilding(temp);
+  w.buildings.delete(temp.id);
+  if (moving) w.stampBuilding(moving);
+  if (!ok) return { ok: false, reason: 'Bloquerait l’accès à une porte ou à une installation' };
   return { ok: true };
 }
 
@@ -352,13 +461,32 @@ export function place(g: Game, type: string, tx: number, ty: number): Check {
     return c;
   }
   const d = BUILDING_BY_ID[type];
-  removeAll(g.player.inv, d.cost);
+  payCost(g, d.cost);
   g.world.addBuilding(type, tx, ty);
   g.stats.built[type] = (g.stats.built[type] ?? 0) + 1;
   g.emit({ type: 'sound', key: 'build' });
   g.emit({ type: 'buildChanged' });
-  g.toast(`${d.name} construit(e).`, 'good');
+  g.toast(`${d.name} installé(e).`, 'good');
   g.emit({ type: 'save', reason: 'build' });
+  return { ok: true };
+}
+
+/** Déplace une installation : gratuit, même identité, contenu et niveau conservés. */
+export function moveBuilding(g: Game, id: number, tx: number, ty: number): Check {
+  const b = g.world.buildings.get(id);
+  if (!b) return { ok: false, reason: 'Introuvable' };
+  const c = canPlace(g, b.type, tx, ty, b);
+  if (!c.ok) {
+    g.emit({ type: 'sound', key: 'error' });
+    return c;
+  }
+  g.world.unstampBuilding(b);
+  b.x = tx;
+  b.y = ty;
+  g.world.stampBuilding(b);
+  g.emit({ type: 'sound', key: 'build' });
+  g.emit({ type: 'buildChanged' });
+  g.emit({ type: 'save', reason: 'move' });
   return { ok: true };
 }
 
@@ -375,50 +503,125 @@ export function demolishRefund(type: string): Record<string, number> {
 export function demolish(g: Game, buildingId: number): Check {
   const b = g.world.buildings.get(buildingId);
   if (!b) return { ok: false };
-  const c = g.world.buildingCenter(b);
-  if (Math.hypot(c.x - g.player.x, c.y - g.player.y) > PLAYER.buildRange + TILE) return { ok: false, reason: 'Trop loin' };
+  if (b.items && b.items.some((s) => s)) return { ok: false, reason: 'Videz d’abord ce coffre : son contenu est toujours conservé.' };
   const refund = demolishRefund(b.type);
-  g.destroyBuilding(b, true);
+  g.world.removeBuilding(b.id);
   for (const [id, n] of Object.entries(refund)) g.give(id, n);
   g.emit({ type: 'sound', key: 'build' });
-  g.toast(`${BUILDING_BY_ID[b.type].name} démoli(e). Remboursé : ${Object.entries(refund).map(([id, n]) => `${n} ${item(id).name}`).join(', ') || 'rien'}.`, 'info');
+  g.emit({ type: 'buildChanged' });
+  g.toast(`${BUILDING_BY_ID[b.type].name} démonté(e). Remboursé : ${Object.entries(refund).map(([id, n]) => `${n} ${item(id).name}`).join(', ') || 'rien'}.`, 'info');
   g.emit({ type: 'save', reason: 'demolish' });
   return { ok: true };
 }
 
-// ------------------------------------------------------------ repos
-export function canSleep(g: Game): Check {
-  const ph = g.phase();
-  if (ph === 'day') return { ok: false, reason: 'On ne dort que le soir ou la nuit.' };
-  const a = g.assault;
-  if (ph === 'night' && a && a.night === g.day && !a.done) return { ok: false, reason: 'La horde de cette nuit n’a pas encore été repoussée.' };
-  if (ph === 'dusk') {
-    // au crépuscule, la horde n'est pas encore venue : il faut l'affronter
-    return { ok: false, reason: 'La horde arrive à la nuit : impossible de dormir maintenant.' };
-  }
-  if (g.final.state === 'active') return { ok: false, reason: 'L’assaut final est en cours !' };
-  const p = g.player;
-  if (g.enemies.some((e) => e.dying <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 12 * TILE)) return { ok: false, reason: 'Des ennemis sont trop proches.' };
-  if (p.hunger < 20) return { ok: false, reason: 'Vous avez trop faim pour dormir.' };
+export function canUpgrade(g: Game, buildingId: number): Check {
+  const b = g.world.buildings.get(buildingId);
+  if (!b) return { ok: false, reason: 'Introuvable' };
+  const d = BUILDING_BY_ID[b.type];
+  if (!d.upgrade) return { ok: false, reason: 'Pas d’amélioration' };
+  if ((b.level ?? 1) >= 2) return { ok: false, reason: 'Déjà améliorée' };
+  const miss = missingText(g, d.upgrade.cost);
+  if (miss) return { ok: false, reason: `Manque : ${miss}` };
   return { ok: true };
 }
 
-export function sleep(g: Game): Check {
-  const c = canSleep(g);
-  if (!c.ok) return c;
+export function upgradeBuilding(g: Game, buildingId: number): Check {
+  const c = canUpgrade(g, buildingId);
+  if (!c.ok) {
+    g.emit({ type: 'sound', key: 'error' });
+    return c;
+  }
+  const b = g.world.buildings.get(buildingId)!;
+  const d = BUILDING_BY_ID[b.type];
+  payCost(g, d.upgrade!.cost);
+  b.level = 2;
+  const st = buildingStats(b.type, 2);
+  if (st.storage && b.items) while (b.items.length < st.storage) b.items.push(null);
+  g.stats.built[`${b.type}_up`] = (g.stats.built[`${b.type}_up`] ?? 0) + 1;
+  g.emit({ type: 'sound', key: 'build' });
+  g.emit({ type: 'buildChanged' });
+  g.toast(`${d.name} amélioré(e) : ${st.name}.`, 'good');
+  g.emit({ type: 'save', reason: 'upgrade' });
+  return { ok: true };
+}
+
+// ------------------------------------------------------------ enchantement
+export function enchantable(g: Game): { where: EquipSlot | number; st: Stack }[] {
+  const out: { where: EquipSlot | number; st: Stack }[] = [];
+  const e = g.player.equip;
+  for (const k of ['weapon', 'armor', 'accessory'] as const) {
+    const st = e[k];
+    if (st && item(st.id).enchantable) out.push({ where: k, st });
+  }
+  g.player.inv.forEach((st, i) => {
+    if (st && item(st.id).enchantable) out.push({ where: i, st });
+  });
+  return out;
+}
+
+export function canEnchant(g: Game, where: EquipSlot | number, enchId: string): Check {
+  const st = typeof where === 'number' ? g.player.inv[where] : g.player.equip[where];
+  const e = ENCHANT_BY_ID[enchId];
+  if (!st || !e) return { ok: false, reason: 'Rien à enchanter' };
+  if (!g.nearStation('enchanter')) return { ok: false, reason: 'Nécessite l’autel d’enchantement à proximité' };
+  const slot = item(st.id).slot;
+  if (!slot || !e.slots.includes(slot) || !item(st.id).enchantable) return { ok: false, reason: 'Enchantement incompatible avec cet objet' };
+  if (st.ench === enchId) return { ok: false, reason: 'Déjà gravé sur cet objet' };
+  const miss = missingText(g, e.cost);
+  if (miss) return { ok: false, reason: `Manque : ${miss}` };
+  return { ok: true };
+}
+
+/** Grave un enchantement (un seul par objet : l'ancien est remplacé, jamais cumulé). */
+export function enchantItem(g: Game, where: EquipSlot | number, enchId: string): Check {
+  const c = canEnchant(g, where, enchId);
+  if (!c.ok) {
+    g.emit({ type: 'sound', key: 'error' });
+    return c;
+  }
+  const st = (typeof where === 'number' ? g.player.inv[where] : g.player.equip[where])!;
+  const prev = st.ench ? ENCHANT_BY_ID[st.ench]?.name : null;
+  payCost(g, ENCHANT_BY_ID[enchId].cost);
+  st.ench = enchId;
+  g.emit({ type: 'sound', key: 'spell_4' });
+  g.emit({ type: 'fx', kind: 'rays', x: g.player.x, y: g.player.y - 24 });
+  g.toast(`${item(st.id).name} : ${ENCHANT_BY_ID[enchId].name}${prev ? ` (remplace ${prev})` : ''}.`, 'good');
+  g.log(`Enchantement : ${item(st.id).name} — ${ENCHANT_BY_ID[enchId].name}.`);
+  g.emit({ type: 'save', reason: 'enchant' });
+  return { ok: true };
+}
+
+// ------------------------------------------------------------ repos, arme de départ
+export function rest(g: Game): Check {
   const p = g.player;
-  const skip = g.dayTime >= DAY.dawnStart ? 0 : DAY.dawnStart - g.dayTime;
-  g.dayTime = DAY.dawnStart;
-  g.clock += skip;
-  p.hunger = Math.max(0, p.hunger - 18);
-  p.hp = Math.min(PLAYER.maxHealth, p.hp + 35);
+  p.hp = maxHp(g);
   p.stamina = PLAYER.maxStamina;
-  g.toast('Vous dormez jusqu’à l’aube. (-18 faim, +35 PV)', 'good');
+  p.mana = PLAYER.maxMana;
+  p.weakT = 0;
+  g.emit({ type: 'sound', key: 'confirm' });
+  g.toast('Vous vous reposez : PV, endurance et mana au maximum.', 'good');
+  return { ok: true };
+}
+
+export const STARTER_WEAPONS = ['dagger_1', 'sword_1', 'mace_1', 'bow_1', 'xbow_1', 'staff_1', 'occ_1'];
+
+export function chooseStarter(g: Game, id: string): Check {
+  if (g.starter) return { ok: false, reason: 'Arme de départ déjà choisie' };
+  if (!STARTER_WEAPONS.includes(id)) return { ok: false, reason: 'Arme inconnue' };
+  g.starter = id;
+  const p = g.player;
+  const prev = p.equip.weapon;
+  p.equip.weapon = { id, qty: 1 };
+  if (prev) addItem(p.inv, prev.id, 1, prev.ench);
+  g.flags.add('starter');
+  g.emit({ type: 'sound', key: 'sword_draw' });
+  g.toast(`${item(id).name} en main. Les autres armes se fabriquent à l’établi et à la forge.`, 'good');
+  g.log(`Arme de départ : ${item(id).name}.`);
+  g.emit({ type: 'save', reason: 'starter' });
   return { ok: true };
 }
 
 // ------------------------------------------------------------ barre rapide
-/** Utilise le raccourci n : mange, soigne ou équipe le premier objet correspondant du sac. */
 export function useHotbar(g: Game, slot: number): Check & { empty?: boolean } {
   const e = g.hotbar[slot];
   if (!e) return { ok: false, empty: true };
@@ -427,12 +630,10 @@ export function useHotbar(g: Game, slot: number): Check & { empty?: boolean } {
     g.toast(`Plus de ${d.name.toLowerCase()} : raccourci épuisé.`, 'info');
     return { ok: false, reason: 'Épuisé' };
   }
-  // pile du sac à utiliser : la plus usée pour la nourriture, la plus solide pour l'équipement
   let idx = -1;
   g.player.inv.forEach((s, i) => {
     if (!s || s.id !== e.id) return;
-    if (idx < 0) idx = i;
-    else if (d.slot ? (s.dur ?? 0) > (g.player.inv[idx]!.dur ?? 0) : s.qty < g.player.inv[idx]!.qty) idx = i;
+    if (idx < 0 || s.qty < g.player.inv[idx]!.qty) idx = i;
   });
   if (idx < 0) {
     if (isEquipped(g, e.id)) {
@@ -444,64 +645,26 @@ export function useHotbar(g: Game, slot: number): Check & { empty?: boolean } {
   return useSlot(g, idx);
 }
 
-// ------------------------------------------------------------ améliorations du camp
-export function canUpgrade(g: Game, buildingId: number): Check {
-  const b = g.world.buildings.get(buildingId);
-  if (!b) return { ok: false, reason: 'Construction introuvable' };
-  const d = BUILDING_BY_ID[b.type];
-  if (!d.upgrade) return { ok: false, reason: 'Pas d’amélioration pour cette construction' };
-  if ((b.level ?? 1) >= 2) return { ok: false, reason: 'Déjà améliorée' };
-  const c = g.world.buildingCenter(b);
-  if (Math.hypot(c.x - g.player.x, c.y - g.player.y) > PLAYER.buildRange + TILE) return { ok: false, reason: 'Trop loin' };
-  const cost = d.upgrade.cost;
-  if (!hasAll(g.player.inv, cost)) return { ok: false, reason: `Manque : ${Object.entries(cost).filter(([id, n]) => countItem(g.player.inv, id) < n).map(([id, n]) => `${n - countItem(g.player.inv, id)} ${item(id).name}`).join(', ')}` };
-  return { ok: true };
-}
-
-/** Améliore une construction : même position, même identité, contenu conservé (et agrandi). */
-export function upgradeBuilding(g: Game, buildingId: number): Check {
-  const c = canUpgrade(g, buildingId);
-  if (!c.ok) {
-    g.emit({ type: 'sound', key: 'error' });
-    return c;
-  }
-  const b = g.world.buildings.get(buildingId)!;
-  const d = BUILDING_BY_ID[b.type];
-  removeAll(g.player.inv, d.upgrade!.cost);
-  b.level = 2;
-  const st = buildingStats(b.type, 2);
-  if (st.storage && b.items && b.items.length < st.storage) {
-    while (b.items.length < st.storage) b.items.push(null);
-  }
-  g.stats.built[`${b.type}_up`] = (g.stats.built[`${b.type}_up`] ?? 0) + 1;
-  g.emit({ type: 'sound', key: 'build' });
-  g.emit({ type: 'buildChanged' });
-  g.toast(`${d.name} amélioré(e) : ${st.name}.`, 'good');
-  g.emit({ type: 'save', reason: 'upgrade' });
-  return { ok: true };
-}
-
-// ------------------------------------------------------------ recette suivie
-export function pinRecipe(g: Game, key: string | null): void {
-  g.pinned = key;
-}
-
 // ------------------------------------------------------------ marqueurs de carte
 export const MARKER_CATS: { cat: import('./types').MarkerCat; name: string; icon: string }[] = [
   { cat: 'resource', name: 'Ressource', icon: 'world:i_wood' },
   { cat: 'danger', name: 'Danger', icon: 'items:fx_alert' },
-  { cat: 'camp', name: 'Camp', icon: 'world:campfire_1' },
+  { cat: 'camp', name: 'Repère', icon: 'world:campfire_1' },
   { cat: 'revisit', name: 'À revoir', icon: 'items:i_note' },
 ];
 
 export function addMarker(g: Game, x: number, y: number, cat: import('./types').MarkerCat, name: string): number {
   const id = g.nextMarkerId++;
   const clean = name.trim().slice(0, 24) || MARKER_CATS.find((m) => m.cat === cat)!.name;
-  g.markers.push({ id, x: Math.max(0, Math.min(g.world.w - 1, x)), y: Math.max(0, Math.min(g.world.h - 1, y)), cat, name: clean });
-  if (g.markers.length > 40) g.markers.shift();
+  g.markers.push({ id, map: g.mapId, x: Math.max(0, Math.min(g.world.w - 1, x)), y: Math.max(0, Math.min(g.world.h - 1, y)), cat, name: clean });
+  if (g.markers.length > 60) g.markers.shift();
   return id;
 }
 
 export function removeMarker(g: Game, id: number): void {
   g.markers = g.markers.filter((m) => m.id !== id);
+}
+
+export function pinRecipe(g: Game, key: string | null): void {
+  g.pinned = key;
 }
