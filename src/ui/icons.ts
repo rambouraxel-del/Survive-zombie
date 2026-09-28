@@ -9,7 +9,7 @@ interface Frame {
 const atlases: Record<string, { url: string; w: number; h: number; frames: Record<string, Frame> }> = {};
 
 export async function loadIconAtlases(): Promise<void> {
-  for (const name of ['world', 'items']) {
+  for (const name of ['world', 'items', 'props']) {
     const res = await fetch(`assets/atlas/${name}.json`);
     const json = await res.json();
     const frames: Record<string, Frame> = {};

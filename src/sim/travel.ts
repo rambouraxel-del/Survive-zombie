@@ -263,6 +263,8 @@ export function startExpedition(g: Game, destId: string, tier = 1): Check {
   if (d.kind === 'dungeon') {
     const s = g.dungeon(destId);
     if (tier < 1 || tier > s.unlocked) return { ok: false, reason: `Palier ${tier} verrouillé : réussissez d’abord le palier ${s.unlocked}.` };
+    const wait = dungeonWait(g, destId);
+    if (wait > 0) return { ok: false, reason: `Les lieux se repeuplent : nouvelle instance dans ${Math.ceil(wait)} s.` };
   }
   const id = ++g.runSeq;
   const pre: Record<string, number> = {};

@@ -96,6 +96,21 @@ export function buildWorld(def: MapDef, variant: Variant = 'main', seed = 1): Bu
           grass[i] = GRASSY.has(ch) && grassBase ? 1 : 0;
       }
     }
+  // eau isolée (hors de tout bloc 2×2) : impossible à dessiner proprement, devient de la boue
+  // praticable (collision et dessin restent identiques)
+  const isW = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && world.water[world.idx(x, y)] === 1;
+  const lone: number[] = [];
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!isW(x, y) || world.bridge[world.idx(x, y)]) continue;
+      let ok = false;
+      for (const [ox, oy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) if (isW(x + ox, y + oy) && isW(x + ox + 1, y + oy) && isW(x + ox, y + oy + 1) && isW(x + ox + 1, y + oy + 1)) ok = true;
+      if (!ok) lone.push(world.idx(x, y));
+    }
+  for (const i of lone) {
+    world.water[i] = 0;
+    grass[i] = 0;
+  }
   // sommets : herbe seulement si les quatre tuiles voisines sont en herbe (la terre l'emporte)
   for (let vy = 0; vy <= h; vy++)
     for (let vx = 0; vx <= w; vx++) {

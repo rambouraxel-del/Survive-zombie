@@ -5,9 +5,9 @@ import { TILE } from '../config/balance';
 import { BUILDING_BY_ID } from '../data/buildings';
 import { addMarker, MARKER_CATS, removeMarker } from '../sim/actions';
 import type { Game } from '../sim/game';
-import { currentObjective } from '../sim/objectives';
 import type { MarkerCat } from '../sim/types';
-import { FOG_CELL, ZONE_NAMES } from '../world/world';
+import { FOG_CELL } from '../world/world';
+import { placeName } from './hud';
 import { h } from './dom';
 import { icon } from './icons';
 
@@ -29,37 +29,43 @@ export function newMapState(): MapState {
   return { cx: 0, cy: 0, z: 3, init: false, marking: false, draft: null, draftCat: 'resource', selected: null, w: 0 };
 }
 
-let base: { seed: number; gen: number; canvas: HTMLCanvasElement } | null = null;
+let base: { world: object; ver: number; canvas: HTMLCanvasElement } | null = null;
 
 function baseMap(g: Game): HTMLCanvasElement {
   const w = g.world;
-  if (base && base.seed === w.seed && base.gen === w.genVersion) return base.canvas;
+  if (base && base.world === w && base.ver === w.version) return base.canvas;
   const c = document.createElement('canvas');
   c.width = w.w;
   c.height = w.h;
   const ctx = c.getContext('2d')!;
   const img = ctx.createImageData(w.w, w.h);
+  const night = w.def.light.darkness > 0.4;
   for (let y = 0; y < w.h; y++)
     for (let x = 0; x < w.w; x++) {
       const i = w.idx(x, y);
       const autumn = w.palette[i] === 1;
       let col = autumn ? [120, 96, 52] : [74, 122, 52];
       if (!w.isGrassTile(x, y)) col = [140, 104, 66];
+      if (w.floor[i]) col = w.floor[i] === 2 ? [128, 92, 60] : [112, 108, 100];
+      if (w.water[i]) col = w.bridge[i] ? [120, 90, 56] : [44, 78, 96];
+      if (w.wall[i]) col = w.wall[i] === 2 ? [40, 36, 34] : [86, 80, 76];
+      if (w.cave[i] && !w.wall[i]) col = [70, 62, 58];
       const o = w.objectAtTile(x, y);
-      if (o && o.solid && !o.removed) {
+      if (o && o.solid && !o.depleted && !w.wall[i]) {
         if (o.type === 'tree') col = autumn ? [82, 58, 36] : [34, 70, 34];
-        else if (o.type === 'house') col = [120, 60, 50];
-        else if (o.type === 'rock' || o.type === 'ore_iron' || o.type === 'ore_coal') col = [110, 110, 110];
+        else if (o.type === 'rock' || o.type === 'ore_iron' || o.type === 'ore_coal' || o.type === 'crystal') col = [110, 110, 110];
+        else if (o.type === 'gate') col = o.open ? col : [150, 70, 50];
         else col = [150, 130, 90];
       }
       const k = i * 4;
-      img.data[k] = col[0];
-      img.data[k + 1] = col[1];
-      img.data[k + 2] = col[2];
+      const f = night ? 0.72 : 1;
+      img.data[k] = col[0] * f;
+      img.data[k + 1] = col[1] * f;
+      img.data[k + 2] = col[2] * f;
       img.data[k + 3] = 255;
     }
   ctx.putImageData(img, 0, 0);
-  base = { seed: w.seed, gen: w.genVersion, canvas: c };
+  base = { world: w, ver: w.version, canvas: c };
   return c;
 }
 
@@ -184,23 +190,27 @@ export function mapView(host: MapHost, st: MapState): HTMLElement {
     }
   };
 
-  // repères : camp, lieux découverts, objectif, paillasse, sac de mort, marqueurs, joueur
-  const obj = currentObjective(g);
-  const objTargets = new Set<string>();
-  if (obj?.id === 'o_fragments') for (const lm of w.landmarks) if (['hamlet', 'cemetery', 'stones'].includes(lm.id) && lm.discovered) {
-    const frag = { hamlet: 'frag_1', cemetery: 'frag_2', stones: 'frag_3' }[lm.id]!;
-    if (!g.fragmentsTaken.includes(frag)) objTargets.add(lm.id);
+  // repères : sortie, points de halte, portes, coffres vus, lieux découverts, marqueurs, joueur
+  const seen = (tx: number, ty: number) => {
+    const cw = Math.ceil(w.w / FOG_CELL);
+    return !!w.fog[Math.floor(ty / FOG_CELL) * cw + Math.floor(tx / FOG_CELL)];
+  };
+  for (const o of w.objects) {
+    if (!seen(o.fx, o.fy)) continue;
+    const cx = o.fx + o.fw / 2;
+    const cy = o.fy + o.fh / 2;
+    if (o.type === 'exit') mark(cx, cy, 'items:signpost', 'Sortie', 'camp');
+    else if (o.type === 'travel') mark(cx, cy, 'items:signpost', 'Départs', 'camp');
+    else if (o.type === 'door') mark(cx, cy, null, o.label ?? 'Porte', 'place');
+    else if (o.type === 'checkpoint') mark(cx, cy, 'world:campfire_1', o.open ? (o.label ?? 'Halte') : '', o.open ? 'camp' : 'place');
+    else if (o.type === 'gate' && !o.open) mark(cx, cy, null, 'Herse', 'place');
   }
-  if (obj && ['o_restore', 'o_final'].includes(obj.id)) objTargets.add('sanctuary');
-  if (obj?.id === 'o_explore') for (const lm of w.landmarks) if (['hamlet', 'cemetery', 'stones'].includes(lm.id) && lm.discovered) objTargets.add(lm.id);
-  for (const lm of w.landmarks) {
-    if (!lm.discovered) continue;
-    const cls = lm.id === 'start' ? 'camp' : objTargets.has(lm.id) ? 'objective' : lm.scene ? 'scene' : 'place';
-    mark(lm.x + 0.5, lm.y + 0.5, lm.icon, lm.name, cls);
-  }
-  for (const b of w.buildings.values()) if (b.type === 'bed') mark(b.x + 1, b.y + 1, 'world:bed_straw', 'Paillasse', 'camp');
-  for (const bag of w.bags.values()) if (bag.kind === 'death' || bag.id === g.deathBagId) mark(bag.x / TILE, bag.y / TILE, 'items:i_bag', 'Votre sac', 'death');
+  for (const lm of w.landmarks) if (lm.discovered) mark(lm.x + 0.5, lm.y + 0.5, lm.icon, lm.name, 'place');
+  const boss = g.bossActive ? g.enemies.find((e) => e.id === g.bossActive!.id) : null;
+  if (boss) mark(boss.x / TILE, boss.y / TILE, null, g.bossActive!.name, 'objective');
+  for (const bag of w.bags.values()) mark(bag.x / TILE, bag.y / TILE, 'items:i_bag', 'Sac', 'death');
   for (const m of g.markers) {
+    if (m.map !== g.mapId) continue;
     const cat = MARKER_CATS.find((c) => c.cat === m.cat)!;
     mark(m.x + 0.5, m.y + 0.5, cat.icon, m.name, `user ${m.cat}${st.selected === m.id ? ' sel' : ''}`, () => {
       st.selected = st.selected === m.id ? null : m.id;
@@ -318,18 +328,19 @@ export function mapView(host: MapHost, st: MapState): HTMLElement {
         h('button', { class: 'btn', text: 'Centrer', onclick: () => { st.cx = sel.x + 0.5; st.cy = sel.y + 0.5; host.rerender(); } }),
         h('button', { class: 'btn danger', text: 'Supprimer', onclick: () => { removeMarker(g, sel.id); st.selected = null; host.rerender(); } }))));
   }
-  const zone = w.zoneAt(Math.floor(ptx), Math.floor(pty));
+  const area = w.areaAt(Math.floor(ptx), Math.floor(pty));
   side.append(h('div', { class: 'legend' },
     h('span', { class: 'lg player', text: 'Vous' }),
     h('span', { class: 'lg camp', text: 'Camp' }),
-    h('span', { class: 'lg objective', text: 'Objectif' }),
-    h('span', { class: 'lg death', text: 'Sac perdu' }),
+    h('span', { class: 'lg objective', text: 'Boss' }),
+    h('span', { class: 'lg death', text: 'Sac au sol' }),
     h('span', { class: 'lg user', text: 'Vos marqueurs' }),
     h('span', { class: 'lg build', text: 'Constructions' }),
   ));
-  side.append(h('div', { class: 'note-muted', text: `${ZONE_NAMES[zone]} · exploré ${Math.round(w.exploredRatio() * 100)} % · fragments ${g.fragmentsFound()}/3` }));
-  if (g.markers.length) {
-    side.append(h('div', { class: 'marker-list' }, ...g.markers.map((m) => h('div', { class: 'mrow' },
+  side.append(h('div', { class: 'note-muted', text: `${placeName(g)}${area ? ` · ${area.name}` : ''} · exploré ${Math.round(w.exploredRatio() * 100)} %` }));
+  const mine = g.markers.filter((m) => m.map === g.mapId);
+  if (mine.length) {
+    side.append(h('div', { class: 'marker-list' }, ...mine.map((m) => h('div', { class: 'mrow' },
       icon(MARKER_CATS.find((c) => c.cat === m.cat)!.icon, 16),
       h('button', { class: 'linkish', text: m.name, onclick: () => { st.selected = m.id; st.cx = m.x + 0.5; st.cy = m.y + 0.5; host.rerender(); } }),
       h('button', { class: 'btn small danger', 'aria-label': `Supprimer ${m.name}`, text: 'Suppr.', onclick: () => { removeMarker(g, m.id); if (st.selected === m.id) st.selected = null; host.rerender(); } })))));

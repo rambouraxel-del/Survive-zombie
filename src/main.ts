@@ -3,9 +3,9 @@ import './style.css';
 import { App } from './app';
 import { WorldScene } from './render/WorldScene';
 import { loadIconAtlases } from './ui/icons';
-import { canPlace, place } from './sim/actions';
+import { canPlace, chooseStarter, craft, place } from './sim/actions';
 import { spawnEnemy } from './sim/enemies';
-import { restoreSanctuary, startFinalAssault, takeFragment } from './sim/interact';
+import { killPlayer, respawn, returnToCamp, startExpedition } from './sim/travel';
 import { perf } from './render/perf';
 import { deserialize } from './save/serialize';
 import { ui } from './ui/panels';
@@ -64,7 +64,7 @@ async function boot(): Promise<void> {
   // accès pour les tests automatisés (scénarios de milieu et de fin de partie)
   (window as unknown as { __perf: unknown }).__perf = perf;
   (window as unknown as { __ui: unknown }).__ui = ui;
-  (window as unknown as { __sim: unknown }).__sim = { canPlace, place, spawnEnemy, takeFragment, restoreSanctuary, startFinalAssault, deserialize };
+  (window as unknown as { __sim: unknown }).__sim = { canPlace, place, craft, chooseStarter, spawnEnemy, startExpedition, returnToCamp, killPlayer, respawn, deserialize };
 }
 
 void boot();

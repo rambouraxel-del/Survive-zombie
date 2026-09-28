@@ -1,7 +1,8 @@
 // Réglages du joueur (stockés séparément des sauvegardes de partie), versionnés.
 //  v1 : son, secousses, debug, aides ;
 //  v2 : mode de commandes, joystick, taille des boutons, gaucher, qualité d'affichage,
-//       aides déjà apprises.
+//       aides déjà apprises ;
+//  v3 : réduction des flashs.
 export type ControlMode = 'auto' | 'touch' | 'keyboard';
 export type Quality = 'auto' | 'high' | 'eco';
 
@@ -12,6 +13,8 @@ export interface Settings {
   sfx: number;
   muted: boolean;
   reduceShake: boolean;
+  /** atténue les flashs et clignotements (accessibilité) */
+  reduceFlash: boolean;
   debug: boolean;
   showHints: boolean;
   controlMode: ControlMode;
@@ -25,7 +28,7 @@ export interface Settings {
 }
 
 const KEY = 'bdc-settings';
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 export const DEFAULT_SETTINGS: Settings = {
   v: SETTINGS_VERSION,
@@ -34,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sfx: 0.8,
   muted: false,
   reduceShake: false,
+  reduceFlash: false,
   debug: false,
   showHints: true,
   controlMode: 'auto',
@@ -54,7 +58,7 @@ export function migrateSettings(raw: unknown): Settings {
   out.master = clamp(s.master, 0, 1, out.master);
   out.music = clamp(s.music, 0, 1, out.music);
   out.sfx = clamp(s.sfx, 0, 1, out.sfx);
-  for (const k of ['muted', 'reduceShake', 'debug', 'showHints', 'leftHanded'] as const) if (typeof s[k] === 'boolean') out[k] = s[k] as boolean;
+  for (const k of ['muted', 'reduceShake', 'reduceFlash', 'debug', 'showHints', 'leftHanded'] as const) if (typeof s[k] === 'boolean') out[k] = s[k] as boolean;
   if (s.controlMode === 'auto' || s.controlMode === 'touch' || s.controlMode === 'keyboard') out.controlMode = s.controlMode;
   if (s.quality === 'auto' || s.quality === 'high' || s.quality === 'eco') out.quality = s.quality;
   out.joySize = clamp(s.joySize, 0.8, 1.3, out.joySize);

@@ -1815,3 +1815,575 @@ body.kbd-mode #kbd-hints {
 body.kbd-mode.keys-learned #kbd-hints {
   display: none;
 }
+
+/* ================= V2 : jauges, lieu, boss, boutons de combat, nouveaux panneaux ================= */
+#bar-mana .fill {
+  background: #4a86d9;
+}
+#bar-hunger.paused .fill {
+  background: #9a8a6a;
+}
+.bar.dim {
+  opacity: 0.55;
+}
+#placebox {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--gold);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (orientation: portrait) {
+  #objective {
+    top: calc(112px + var(--sat));
+  }
+  #pin {
+    top: calc(166px + var(--sat));
+  }
+}
+#bossbar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 56vw);
+  padding: 4px 10px 6px;
+  border-radius: 10px;
+  background: rgba(20, 10, 8, 0.78);
+  border: 1px solid #8a3a2a;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #f3c0a8;
+}
+#bossbar .track {
+  height: 9px;
+  margin-top: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#bossbar .fill {
+  height: 100%;
+  background: linear-gradient(#e0503c, #9a2a1a);
+  transition: width 0.2s linear;
+}
+#bossbar.hidden {
+  display: none;
+}
+@media (orientation: landscape) {
+  #bossbar {
+    top: calc(60px + var(--sat));
+  }
+}
+@media (orientation: portrait) {
+  #bossbar {
+    top: calc(166px + var(--sat));
+    width: calc(100vw - 16px - var(--sal) - var(--sar));
+  }
+}
+
+/* boutons de compétence, d'ultime et d'arme */
+.abtn.skill .cd,
+.abtn.ult .pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 3px #000, 0 0 2px #000;
+  pointer-events: none;
+}
+.abtn.ult .pct {
+  font-size: 12px;
+  align-items: flex-end;
+  padding-bottom: 5px;
+}
+.abtn.skill .cost {
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #cfe0ff;
+  text-shadow: 0 1px 2px #000;
+}
+.abtn.skill.cooling .aico,
+.abtn.skill.short .aico {
+  opacity: 0.4;
+}
+.abtn.skill.cooling {
+  border-color: #555;
+}
+.abtn.skill.short {
+  border-color: #6a5a8a;
+}
+.abtn.locked {
+  opacity: 0.45;
+}
+.abtn.ult {
+  border: none;
+  --ult: 0%;
+  background: conic-gradient(var(--gold) var(--ult), rgba(255, 255, 255, 0.12) 0) padding-box;
+}
+.abtn.ult .ring {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: rgba(34, 26, 18, 0.92);
+  pointer-events: none;
+}
+.abtn.ult .aico {
+  position: relative;
+}
+.abtn.ult.ready {
+  box-shadow: 0 0 10px 2px rgba(232, 199, 122, 0.8);
+  animation: ultglow 1.2s infinite alternate;
+}
+@keyframes ultglow {
+  to {
+    box-shadow: 0 0 4px 1px rgba(232, 199, 122, 0.4);
+  }
+}
+body.reduce-flash .abtn.ult.ready,
+body.reduce-flash .bar.crit {
+  animation: none;
+}
+.abtn.tiny .wtier {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 1px 2px #000;
+}
+.abtn kbd {
+  position: absolute;
+  left: -2px;
+  top: -2px;
+}
+#btn-attack .reload {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 8px;
+  height: 5px;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 3px;
+  overflow: hidden;
+}
+#btn-attack .reload > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #e8c77a;
+}
+#btn-attack .reload.hidden {
+  display: none;
+}
+#ult-cancel {
+  position: absolute;
+  top: calc(12px + var(--sat));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 14px 22px;
+  border-radius: 14px;
+  background: rgba(30, 20, 14, 0.88);
+  border: 2px dashed var(--bad);
+  color: var(--bad);
+  font-weight: 800;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 5;
+}
+#ult-cancel.over {
+  background: rgba(150, 40, 30, 0.9);
+  color: #fff;
+}
+#ult-cancel.hidden {
+  display: none;
+}
+
+/* disposition des boutons : paysage */
+@media (orientation: landscape) {
+  #action-buttons {
+    width: 240px;
+    height: 214px;
+  }
+  #btn-attack {
+    width: 88px;
+    height: 88px;
+    right: 0;
+    bottom: 0;
+  }
+  #btn-action {
+    width: 70px;
+    height: 70px;
+    right: 96px;
+    bottom: 0;
+  }
+  #btn-dodge {
+    width: 54px;
+    height: 54px;
+    right: 176px;
+    bottom: 6px;
+  }
+  #btn-skill-1 {
+    width: 58px;
+    height: 58px;
+    right: 6px;
+    bottom: 98px;
+  }
+  #btn-skill-0 {
+    width: 58px;
+    height: 58px;
+    right: 76px;
+    bottom: 86px;
+  }
+  #btn-ult {
+    width: 64px;
+    height: 64px;
+    right: 146px;
+    bottom: 70px;
+  }
+  #btn-weapon {
+    width: 46px;
+    height: 46px;
+    right: 18px;
+    bottom: 164px;
+  }
+}
+@media (orientation: landscape) and (max-height: 400px) {
+  #action-buttons {
+    transform: scale(calc(var(--btn-scale) * 0.86));
+  }
+  body.lefty #action-buttons {
+    transform: scale(calc(var(--btn-scale) * 0.86)) scaleX(-1);
+  }
+}
+/* disposition des boutons : portrait */
+@media (orientation: portrait) {
+  #action-buttons {
+    width: 206px;
+    height: 200px;
+  }
+  #btn-attack {
+    width: 80px;
+    height: 80px;
+    right: 0;
+    bottom: 0;
+  }
+  #btn-action {
+    width: 66px;
+    height: 66px;
+    right: 88px;
+    bottom: 0;
+  }
+  #btn-dodge {
+    width: 52px;
+    height: 52px;
+    right: 154px;
+    bottom: 72px;
+  }
+  #btn-skill-1 {
+    width: 54px;
+    height: 54px;
+    right: 4px;
+    bottom: 88px;
+  }
+  #btn-skill-0 {
+    width: 54px;
+    height: 54px;
+    right: 66px;
+    bottom: 78px;
+  }
+  #btn-ult {
+    width: 58px;
+    height: 58px;
+    right: 118px;
+    bottom: 136px;
+  }
+  #btn-weapon {
+    width: 44px;
+    height: 44px;
+    right: 10px;
+    bottom: 150px;
+  }
+}
+
+/* mode clavier : seules les jauges de compétence, d'ultime et l'arme restent visibles */
+body.kbd-mode #action-buttons {
+  display: block;
+  width: 260px;
+  height: 70px;
+  pointer-events: none;
+}
+body.kbd-mode #btn-attack,
+body.kbd-mode #btn-action,
+body.kbd-mode #btn-dodge {
+  display: none;
+}
+body.kbd-mode #action-buttons .abtn {
+  pointer-events: none;
+  bottom: 0;
+  width: 56px;
+  height: 56px;
+}
+body.kbd-mode #btn-weapon {
+  right: 190px;
+}
+body.kbd-mode #btn-skill-0 {
+  right: 126px;
+}
+body.kbd-mode #btn-skill-1 {
+  right: 64px;
+}
+body.kbd-mode #btn-ult {
+  right: 0;
+}
+
+/* emplacements : rang, enchantement */
+.slot .tier {
+  position: absolute;
+  right: 3px;
+  top: 1px;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.slot.ench {
+  box-shadow: inset 0 0 0 1px #8a6ad9, 0 0 6px rgba(138, 106, 217, 0.55);
+}
+.ench-line {
+  color: #c9b4ff;
+}
+
+/* armes et maîtrises */
+.weapon-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wpick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 74px;
+  min-height: 64px;
+  padding: 5px 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 11px;
+}
+.wpick small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.wpick.on {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.wpick.ench {
+  border-color: #8a6ad9;
+}
+.weapon-strip.big .wpick {
+  min-width: 110px;
+}
+.mastery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+}
+.mrow-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--line);
+  color: var(--text);
+  text-align: left;
+  min-height: 52px;
+}
+.mrow-btn.on {
+  border-color: var(--gold);
+}
+.mrow-btn.cur b::after {
+  content: ' (en main)';
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 10px;
+}
+.mrow-btn .mlvl {
+  font-size: 11px;
+  color: var(--muted);
+}
+.mbar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.mbar > i {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+.slot-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* carrefour des expéditions */
+.dest {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+}
+.dest.locked {
+  opacity: 0.7;
+}
+.dest.done {
+  border-color: #5a7a3a;
+}
+.dimg {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dimg.locked .ico {
+  filter: grayscale(1) brightness(0.5);
+}
+.dmain {
+  flex: 1;
+  min-width: 0;
+}
+.dname {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 15px;
+}
+.dstat {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.dstat.available {
+  color: var(--good);
+}
+.dstat.progress {
+  color: var(--warn);
+}
+.dstat.done {
+  color: #9ec7ff;
+}
+.dstat.locked {
+  color: var(--bad);
+}
+.dkind {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 4px;
+}
+.tiers {
+  display: flex;
+  gap: 6px;
+  margin: 6px 0;
+}
+.chip.tier {
+  min-width: 44px;
+  min-height: 40px;
+  justify-content: center;
+}
+.chip.tier.cleared {
+  color: var(--good);
+}
+.chip:disabled {
+  opacity: 0.4;
+}
+
+/* râtelier */
+.starter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.starter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+}
+.sthead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+}
+.starter .btn {
+  margin-top: auto;
+}
+
+/* journal, mort */
+ul.journal {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+ul.journal li {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+ul.journal small {
+  color: var(--muted);
+}
+ul.loss {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+ul.loss li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--bad);
+  font-weight: 700;
+}
+details.skills-info summary {
+  cursor: pointer;
+  color: var(--gold);
+  margin: 4px 0;
+}

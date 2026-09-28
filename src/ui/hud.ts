@@ -1,12 +1,17 @@
-// Affichage tête haute compact : jauges, jour/nuit, objectif sur une ligne, recette suivie,
-// barre rapide (raccourcis indépendants du sac), boutons d'action.
-// Le DOM n'est modifié que lorsqu'une valeur affichée change réellement.
-import { DAY, PLAYER } from '../config/balance';
-import { item } from '../data/items';
-import { PHASE_NAMES, type Game } from '../sim/game';
+// Affichage tête haute compact : jauges (PV, endurance, mana, faim), lieu, barre de boss,
+// objectif sur une ligne, recette suivie, raccourcis, boutons d'action (arme, compétences,
+// ultime, esquive, action, attaque). Le DOM n'est modifié que lorsqu'une valeur change.
+import { PLAYER } from '../config/balance';
+import { DEST_BY_ID } from '../data/destinations';
+import { item, TIER_LABEL } from '../data/items';
+import { FAMILY, SKILL, ULTS } from '../data/weapons';
+import type { Game } from '../sim/game';
 import { currentObjective } from '../sim/objectives';
 import { hotbarQty, isEquipped } from '../sim/hotbar';
 import { entryByKey, missingFor } from '../sim/crafting';
+import { skillState } from '../sim/combat';
+import { currentFamily, currentTier, currentWeapon, maxHp, ultUnlocked } from '../sim/profile';
+import { checkpointName } from '../sim/travel';
 import type { Stack } from '../sim/inventory';
 import { perf } from '../render/perf';
 import { $, clear, h } from './dom';
@@ -19,14 +24,10 @@ export function slotEl(st: Stack | null, opts: { key?: string; box?: number; sel
     const d = item(st.id);
     b.append(icon(d.icon, opts.box ?? 36));
     if (st.qty > 1) b.append(h('span', { class: 'qty', text: String(st.qty) }));
-    if (d.durability !== undefined && st.dur !== undefined) {
-      const r = st.dur / d.durability;
-      const bar = h('span', { class: 'dur' + (r < 0.25 ? ' low' : '') }, h('i', { style: { width: `${Math.max(0, r * 100)}%` } }));
-      b.append(bar);
-      if (st.dur <= 0) b.classList.add('broken');
-    }
+    if (d.tier) b.append(h('span', { class: 'tier', text: TIER_LABEL[d.tier] }));
+    if (st.ench) b.classList.add('ench');
     b.title = d.name;
-    b.setAttribute('aria-label', `${d.name}${st.qty > 1 ? ` × ${st.qty}` : ''}`);
+    b.setAttribute('aria-label', `${d.name}${st.qty > 1 ? ` × ${st.qty}` : ''}${st.ench ? ' (enchanté)' : ''}`);
   } else b.setAttribute('aria-label', 'Emplacement vide');
   return b;
 }
@@ -51,11 +52,21 @@ export function hotbarSlotEl(g: Game, i: number, opts: { box?: number; sel?: boo
   return b;
 }
 
+/** Nom du lieu actuel (et palier / point de halte). */
+export function placeName(g: Game): string {
+  const run = g.run;
+  if (!run) return g.mapId === 'house' ? 'Camp · maison' : 'Camp (sûr)';
+  const d = DEST_BY_ID[run.dest];
+  if (run.kind === 'dungeon') return `${d.name.replace('Donjon : ', '')} · palier ${run.tier}`;
+  const cp = run.checkpoint ?? (run.kind === 'main' ? g.level(run.map).checkpoint : null);
+  return cp ? `${d.name} · ${checkpointName(g, run.map) ?? 'halte'}` : d.name;
+}
+
 /** Durée pendant laquelle un objectif nouveau ou qui progresse est mis en avant. */
 const FRESH_MS = 6000;
 
 export class Hud {
-  private last = { hb: '', weapon: '#', obj: '', target: '', pin: '', bars: '', day: '' };
+  private last: Record<string, string> = {};
   private t = 0;
   private freshTimer = 0;
   onQuickSlot: (i: number) => void = () => {};
@@ -68,13 +79,19 @@ export class Hud {
     setIcon($('#btn-dodge .aico'), 'items:i_boots', 24);
   }
 
-  private setBar(id: string, v: number, max: number, warn: number, crit: number): void {
+  private changed(k: string, v: string): boolean {
+    if (this.last[k] === v) return false;
+    this.last[k] = v;
+    return true;
+  }
+
+  private setBar(id: string, v: number, max: number, warn: number, crit: number, extra = ''): void {
     const el = $(id);
     const w = `${Math.max(0, Math.min(100, (v / max) * 100)).toFixed(1)}%`;
     const fill = el.querySelector('.fill') as HTMLElement;
     if (fill.style.width !== w) fill.style.width = w;
     const val = el.querySelector('.val') as HTMLElement;
-    const txt = String(Math.max(0, Math.round(v)));
+    const txt = String(Math.max(0, Math.round(v))) + extra;
     if (val.textContent !== txt) val.textContent = txt;
     el.classList.toggle('warn', v <= warn);
     el.classList.toggle('crit', v <= crit);
@@ -86,9 +103,7 @@ export class Hud {
     const p = g.player;
     // bouton d'action : réagit immédiatement au changement de cible ; verbe court seulement
     const tgt = g.target;
-    const tkey = tgt ? `${tgt.label}|${tgt.icon}|${tgt.empty ? 1 : 0}` : '';
-    if (tkey !== this.last.target) {
-      this.last.target = tkey;
+    if (this.changed('target', tgt ? `${tgt.label}|${tgt.icon}|${tgt.empty ? 1 : 0}` : '')) {
       const btn = $('#btn-action');
       (btn.querySelector('.albl') as HTMLElement).textContent = tgt ? tgt.label : 'Action';
       const ico = btn.querySelector('.aico') as HTMLElement;
@@ -98,47 +113,40 @@ export class Hud {
       btn.classList.toggle('no-target', !tgt);
       btn.setAttribute('aria-label', tgt ? `${tgt.label} : ${tgt.name}` : 'Action (rien à portée)');
     }
+    this.updateCombat(g);
     if (this.t > 0) return;
     this.t = 0.1;
-    // jauges : écrites seulement si l'arrondi affiché change
-    const bars = `${Math.round(p.hp)}|${Math.round(p.hunger)}|${Math.round(p.stamina)}`;
-    if (bars !== this.last.bars) {
-      this.last.bars = bars;
-      this.setBar('#bar-hp', p.hp, PLAYER.maxHealth, 35, 20);
-      this.setBar('#bar-hunger', p.hunger, PLAYER.maxHunger, PLAYER.hungerWarn, PLAYER.hungerCritical);
+    const mhp = maxHp(g);
+    if (this.changed('bars', `${Math.round(p.hp)}|${mhp}|${Math.round(p.hunger)}|${Math.round(p.stamina)}|${Math.round(p.mana)}|${g.run ? 1 : 0}`)) {
+      this.setBar('#bar-hp', p.hp, mhp, mhp * 0.35, mhp * 0.2);
       this.setBar('#bar-stamina', p.stamina, PLAYER.maxStamina, 20, 0);
+      this.setBar('#bar-mana', p.mana, PLAYER.maxMana, 20, 0);
+      this.setBar('#bar-hunger', p.hunger, PLAYER.maxHunger, 30, 12);
+      $('#bar-hunger').classList.toggle('paused', !g.run);
+      $('#bar-hunger').title = g.run ? 'La faim baisse pendant les expéditions.' : 'Au camp, la faim ne baisse pas.';
+      const fam = currentFamily(g);
+      $('#bar-mana').classList.toggle('dim', !!fam && FAMILY[fam].resource !== 'mana');
+      $('#bar-stamina').classList.toggle('dim', !!fam && FAMILY[fam].resource === 'mana');
     }
-    const day = `Jour ${g.day} · ${PHASE_NAMES[g.phase()]}`;
-    const dpos = `${((g.dayTime / DAY.length) * 100).toFixed(1)}%`;
-    if (day + dpos !== this.last.day) {
-      this.last.day = day + dpos;
-      $('#dayname').textContent = day;
-      $('#dayfill').style.left = dpos;
-    }
+    const pn = placeName(g);
+    if (this.changed('place', pn)) $('#place-line').textContent = pn;
 
-    // arme (ou outil servant d'arme) affichée sur le bouton d'attaque, avec son usure
-    const w = p.equip.weapon ?? (p.equip.tool && item(p.equip.tool.id).weapon ? p.equip.tool : null);
-    const wsig = w ? `${w.id}|${Math.ceil(w.dur ?? 0)}` : '';
-    if (wsig !== this.last.weapon) {
-      this.last.weapon = wsig;
-      const btn = $('#btn-attack');
-      setIcon(btn.querySelector('.aico') as HTMLElement, w ? item(w.id).icon : 'items:i_sword', 30);
-      btn.classList.toggle('bare', !w);
-      const dur = btn.querySelector('.dur') as HTMLElement;
-      const d = w ? item(w.id) : null;
-      if (w && d?.durability && w.dur !== undefined) {
-        const r = w.dur / d.durability;
-        dur.classList.remove('hidden');
-        dur.classList.toggle('low', r < 0.25);
-        (dur.firstElementChild as HTMLElement).style.width = `${Math.max(0, r * 100)}%`;
-      } else dur.classList.add('hidden');
-      btn.setAttribute('aria-label', w ? `Attaquer (${item(w.id).name})` : 'Attaquer (mains nues)');
+    // barre de boss
+    const ba = g.bossActive;
+    const be = ba ? g.enemies.find((e) => e.id === ba.id) : null;
+    const bsig = be ? `${ba!.name}|${Math.ceil(be.hp)}|${be.phase}` : '';
+    if (this.changed('boss', bsig)) {
+      const bar = $('#bossbar');
+      bar.classList.toggle('hidden', !be);
+      if (be) {
+        $('#boss-name').textContent = `${ba!.name}${be.phase === 2 ? ' — enragé' : ''}`;
+        (bar.querySelector('.fill') as HTMLElement).style.width = `${Math.max(0, (be.hp / be.maxHp) * 100).toFixed(1)}%`;
+      }
     }
 
     // barre rapide : raccourcis indépendants du sac
     const hsig = g.hotbar.map((e) => (e ? `${e.id}:${hotbarQty(g, e.id)}:${isEquipped(g, e.id) ? 1 : 0}` : '-')).join('|');
-    if (hsig !== this.last.hb) {
-      this.last.hb = hsig;
+    if (this.changed('hb', hsig)) {
       const qb = $('#quickbar');
       clear(qb);
       for (let i = 0; i < g.hotbar.length; i++) {
@@ -148,23 +156,20 @@ export class Hud {
       }
     }
 
-    // objectif : une seule ligne, mise en avant brièvement quand il change ou progresse
+    // objectif : une seule ligne, mise en avant brièvement quand il change
     const o = currentObjective(g);
     const prog = o?.progress?.(g) ?? '';
-    const osig = o ? `${o.id}|${prog}` : `done|${g.final.state}`;
-    if (osig !== this.last.obj) {
-      const first = this.last.obj === '';
-      const changed = this.last.obj.split('|')[0] !== osig.split('|')[0];
-      this.last.obj = osig;
-      $('#obj-title').textContent = o ? o.title : g.final.state === 'won' ? 'Forêt libérée : explorez librement' : 'Survivre';
-      $('#obj-progress').textContent = prog ? shortProgress(prog) : '';
-      if (!first && changed) this.highlightObjective();
+    const osig = o ? `${o.id}|${prog}` : 'done';
+    const prevObj = this.last.obj ?? '';
+    if (this.changed('obj', osig)) {
+      $('#obj-title').textContent = o ? o.title : 'Explorer librement, monter les paliers';
+      $('#obj-progress').textContent = prog;
+      if (prevObj && prevObj.split('|')[0] !== osig.split('|')[0]) this.highlightObjective();
     }
 
-    // recette suivie : ressources manquantes (directes / à fabriquer)
+    // recette suivie
     const pinSig = g.pinned ? pinText(g) : '';
-    if (pinSig !== this.last.pin) {
-      this.last.pin = pinSig;
+    if (this.changed('pin', pinSig)) {
       const el = $('#pin');
       el.classList.toggle('hidden', !g.pinned);
       $('#pin-text').textContent = pinSig;
@@ -173,6 +178,58 @@ export class Hud {
         if (e) setIcon($('#pin .pin-ico'), item(e.output).icon, 18);
         el.classList.toggle('ready', !!missingFor(g, g.pinned)?.ready);
       }
+    }
+  }
+
+  /** Boutons de combat : mis à jour à chaque image (recharges visibles), écrits seulement si besoin. */
+  private updateCombat(g: Game): void {
+    const p = g.player;
+    const fam = currentFamily(g);
+    const w = p.equip.weapon;
+    if (this.changed('weapon', w ? `${w.id}|${w.ench ?? ''}` : '')) {
+      const atk = $('#btn-attack');
+      setIcon(atk.querySelector('.aico') as HTMLElement, w ? item(w.id).icon : 'items:i_claws', 30);
+      atk.classList.toggle('bare', !w);
+      atk.setAttribute('aria-label', w ? `Attaquer (${item(w.id).name})` : 'Attaquer (mains nues)');
+      const wb = $('#btn-weapon');
+      setIcon(wb.querySelector('.aico') as HTMLElement, w ? item(w.id).icon : 'items:i_claws', 22);
+      (wb.querySelector('.wtier') as HTMLElement).textContent = w ? TIER_LABEL[currentTier(g)] : '';
+      wb.setAttribute('aria-label', `Changer d’arme (actuelle : ${w ? item(w.id).name : 'mains nues'}). Appui long : liste.`);
+    }
+    // arbalète : indicateur de rechargement
+    const st = currentWeapon(g);
+    const rl = fam === 'crossbow' && !p.xbowLoaded ? Math.min(1, p.reloadT / (st.reload ?? 1)) : -1;
+    if (this.changed('reload', rl < 0 ? '' : rl.toFixed(2))) {
+      const r = $('#btn-attack .reload');
+      r.classList.toggle('hidden', rl < 0);
+      if (rl >= 0) (r.firstElementChild as HTMLElement).style.width = `${(rl * 100).toFixed(0)}%`;
+    }
+    for (const i of [0, 1] as const) {
+      const s = skillState(g, i);
+      const cd = s.cd > 0 ? Math.ceil(s.cd) : 0;
+      const sig = `${s.id ?? '-'}|${cd}|${s.ok ? 1 : 0}|${s.reason ?? ''}`;
+      if (!this.changed(`sk${i}`, sig)) continue;
+      const b = $(`#btn-skill-${i}`);
+      const ico = b.querySelector('.aico') as HTMLElement;
+      if (s.id) setIcon(ico, SKILL[s.id].icon, 26);
+      else setIcon(ico, 'items:i_key', 20);
+      (b.querySelector('.cd') as HTMLElement).textContent = cd ? String(cd) : '';
+      (b.querySelector('.cost') as HTMLElement).textContent = s.id ? String(SKILL[s.id].cost) : '';
+      b.classList.toggle('locked', !s.id);
+      b.classList.toggle('cooling', cd > 0);
+      b.classList.toggle('short', !!s.id && !s.ok && cd === 0);
+      b.setAttribute('aria-label', s.id ? `${SKILL[s.id].name}${cd ? ` (recharge ${cd} s)` : ''}` : `Compétence ${i + 1} : ${s.reason ?? 'à débloquer'}`);
+    }
+    const unlocked = !!fam && ultUnlocked(g, fam);
+    const pct = Math.floor(g.ult);
+    if (this.changed('ult', `${fam ?? '-'}|${pct}|${unlocked ? 1 : 0}`)) {
+      const b = $('#btn-ult');
+      b.style.setProperty('--ult', `${pct}%`);
+      (b.querySelector('.pct') as HTMLElement).textContent = pct >= 100 ? '' : `${pct}`;
+      setIcon(b.querySelector('.aico') as HTMLElement, fam ? ULTS[fam].icon : 'items:i_gem_red', 28);
+      b.classList.toggle('ready', pct >= 100 && unlocked);
+      b.classList.toggle('locked', !unlocked);
+      b.setAttribute('aria-label', fam ? `Ultime : ${ULTS[fam].name} (${pct} %). Maintenir et glisser pour viser.` : 'Ultime : équipez une arme');
     }
   }
 
@@ -185,12 +242,14 @@ export class Hud {
   }
 
   forceRefresh(): void {
-    this.last = { hb: '', weapon: '#', obj: this.last.obj, target: '', pin: '', bars: '', day: '' };
+    const obj = this.last.obj;
+    this.last = {};
+    if (obj) this.last.obj = obj;
     this.t = 0;
   }
 }
 
-/** Texte compact de la recette suivie : « Massue : pierre 1/3 · corde 0/1 (à fabriquer) ». */
+/** Texte compact de la recette suivie : « Épée longue : acier 1/3 · cuir 0/1 (à fabriquer) ». */
 export function pinText(g: Game): string {
   if (!g.pinned) return '';
   const e = entryByKey(g.pinned);
@@ -203,11 +262,4 @@ export function pinText(g: Game): string {
     ...m.crafted.map((x) => `${item(x.id).name.toLowerCase()} ${x.have}/${x.need} (à fabriquer)`),
   ];
   return `${name} : ${parts.join(' · ')}`;
-}
-
-/** « Bois 1/3 · Pierre 0/3 · Fibres 2/2 » -> « 1/3 · 0/3 · 2/2 » pour tenir sur une ligne. */
-function shortProgress(p: string): string {
-  const parts = p.split('·').map((s) => s.trim());
-  if (parts.length > 1 && parts.every((s) => /\d+\/\d+/.test(s))) return parts.map((s) => s.replace(/^[^\d]*\s/, '')).join(' · ');
-  return p;
 }

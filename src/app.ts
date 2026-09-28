@@ -4,23 +4,26 @@ import { AudioManager } from './audio/audio';
 import { BUILDING_BY_ID } from './data/buildings';
 import { Controls, type InputKind } from './input/controls';
 import type { WorldScene, SceneHost } from './render/WorldScene';
-import { deserialize, serialize, validateSave } from './save/serialize';
-import { clearSaves, hasSave, loadSave, writeSave } from './save/storage';
+import { deserialize, isLegacy, serialize, validateSave } from './save/serialize';
+import { clearSaves, getLegacy, hasSave, keepLegacy, loadSave, writeSave } from './save/storage';
 import { loadSettings, saveSettings, type Settings } from './settings';
-import { canPlace, place, useHotbar } from './sim/actions';
+import { canPlace, equipSlot, moveBuilding, place, useHotbar } from './sim/actions';
 import { Game } from './sim/game';
 import { selectTargetAt } from './sim/interact';
 import { skipIntro } from './sim/objectives';
+import { respawn } from './sim/travel';
+import { FAMILIES, FAMILY } from './data/weapons';
+import { currentFamily } from './sim/profile';
 import { item } from './data/items';
-import type { GameEvent, InputState } from './sim/types';
+import type { DeathSummary, GameEvent, InputState } from './sim/types';
 import { $, clear, h } from './ui/dom';
-import { Hud } from './ui/hud';
+import { Hud, placeName } from './ui/hud';
 import { icon } from './ui/icons';
 import * as P from './ui/panels';
 import { perf } from './render/perf';
 import type { Station } from './data/items';
 
-type Overlay = null | 'title' | 'gate' | 'death' | 'victory' | 'loading';
+type Overlay = null | 'title' | 'gate' | 'death' | 'runEnd' | 'loading';
 
 /** Identifiant de version injecté au build (commit + date), pour diagnostiquer les caches. */
 declare const __APP_VERSION__: string;
@@ -51,6 +54,9 @@ export class App implements P.PanelHost, SceneHost {
   private kbdTime = 0;
   onResolutionChange: (() => void) | null = null;
   private collect: { el: HTMLElement; items: Map<string, number>; t: number } | null = null;
+  /** une copie de la sauvegarde de l'ancienne version existe (export proposé) */
+  hasLegacy = false;
+  private combatT = 0;
 
   constructor() {
     this.controls = new Controls(document.body, {
@@ -69,6 +75,11 @@ export class App implements P.PanelHost, SceneHost {
     window.addEventListener('pagehide', () => this.onHidden());
     window.addEventListener('keydown', (e) => this.onPlacementKey(e));
     this.showLoading();
+    void getLegacy().then((v) => (this.hasLegacy = v !== undefined));
+  }
+
+  get inGame(): boolean {
+    return !!this.g;
   }
 
   get game(): Game {
@@ -84,8 +95,16 @@ export class App implements P.PanelHost, SceneHost {
     return this.controls.poll();
   }
 
+  aimInput(): InputState | null {
+    return this.g && !this.isSimPaused() ? this.controls.state : null;
+  }
+
   reduceShake(): boolean {
     return this.settings.reduceShake;
+  }
+
+  reduceFlash(): boolean {
+    return this.settings.reduceFlash;
   }
 
   debug(): boolean {
@@ -99,7 +118,7 @@ export class App implements P.PanelHost, SceneHost {
 
   onSceneReady(scene: WorldScene): void {
     this.scene = scene;
-    this.audio.attach(scene.sound);
+    this.audio.attach(scene);
     this.hud = new Hud();
     this.hud.onQuickSlot = (i) => this.quickSlot(i);
     void this.showTitle();
@@ -133,10 +152,21 @@ export class App implements P.PanelHost, SceneHost {
         this.openPanel(e.panel, e.ref);
         break;
       case 'death':
-        this.showDeath(e.reason, e.lost, e.hasBag, e.atBed);
+        this.showDeath(e.summary);
         break;
-      case 'victory':
-        this.showVictory();
+      case 'runEnd':
+        this.showRunEnd(e.title, e.text);
+        break;
+      case 'mastery':
+        this.toast(`Maîtrise ${FAMILY[e.family].short} : niveau ${e.level} !`, 'good');
+        this.audio.play('achieve');
+        break;
+      case 'boss':
+        if (e.active) this.toast(e.name, 'warn');
+        break;
+      case 'mapChanged':
+        this.hud?.forceRefresh();
+        this.layoutT = 0.05;
         break;
       default:
         break;
@@ -149,7 +179,7 @@ export class App implements P.PanelHost, SceneHost {
       // écran titre : lent travelling sur une forêt générée
       if (this.scene && this.titleGame) {
         const cam = this.scene.cameras.main;
-        cam.scrollX += dt * 12;
+        cam.scrollX += dt * 8;
         if (cam.scrollX > this.titleGame.world.w * TILE - cam.width) cam.scrollX = 0;
       }
       return;
@@ -172,9 +202,7 @@ export class App implements P.PanelHost, SceneHost {
       this.layoutT = 1;
       this.measureInsets();
     }
-    // musique selon le moment
-    const night = g.isDark() || g.final.state === 'active';
-    this.audio.setMusic(night ? 'music_night' : 'music_day');
+    this.updateMusic(g, dt);
     this.fireT -= dt;
     if (this.fireT <= 0) {
       this.fireT = 0.25;
@@ -201,11 +229,9 @@ export class App implements P.PanelHost, SceneHost {
         `ms/image : simulation ${pf.sim.avg} · scène ${pf.scene.avg} · rendu ${pf.render.avg} · interface ${pf.ui.avg}`,
         `Ennemis actifs ${g.enemies.length} (dessinés ${st?.enemiesDrawn ?? 0})`,
         `Objets affichés ${st?.objects ?? 0}`,
-        `Graine ${g.world.seed}`,
-        `Tuile ${tx},${ty} · ${g.world.zoneAt(tx, ty)}`,
-        `Jour ${g.day} t=${g.dayTime.toFixed(0)} · ${g.phase()}`,
-        `Horde ${g.assault ? `${g.assault.spawned}/${g.assault.total}${g.assault.done ? ' ✓' : ''}` : '-'}`,
-        `Final ${g.final.state} v${g.final.wave}`,
+        `Carte ${g.mapId} · instance ${g.run?.id ?? '-'} · graine ${g.world.seed}`,
+        `Tuile ${tx},${ty} · ${g.world.areaAt(tx, ty)?.name ?? '-'}`,
+        `Ultime ${Math.floor(g.ult)} % · maîtrises ${FAMILIES.map((f) => Math.floor(g.mastery[f] ?? 0)).join('/')}`,
       ].join('\n');
     }
   }
@@ -219,6 +245,17 @@ export class App implements P.PanelHost, SceneHost {
   onManagePointer(tx: number, ty: number): void {
     const b = this.g?.world.buildingAtTile(tx, ty);
     if (b) this.openPanel('manage', String(b.id));
+    else this.toast('Touchez une installation encadrée. Maison, chemins et emplacements réservés sont fixes.', 'info');
+  }
+
+  /** Musique par contexte : camp, région, combat, boss (fondus enchaînés). */
+  private updateMusic(g: Game, dt: number): void {
+    const near = g.enemies.some((e) => e.dying <= 0 && e.state === 'chase' && Math.hypot(e.x - g.player.x, e.y - g.player.y) < 320);
+    this.combatT = near ? 6 : Math.max(0, this.combatT - dt);
+    let key = g.world.def.music;
+    if (g.bossActive) key = 'music_boss';
+    else if (this.combatT > 0 && g.run) key = 'music_battle';
+    this.audio.setMusic(key);
   }
 
   /** Toucher un objet proche le choisit comme cible, sans déplacer le personnage. */
@@ -249,8 +286,16 @@ export class App implements P.PanelHost, SceneHost {
     ($('#place-rot') as HTMLButtonElement).disabled = true;
   }
 
-  private shortcut(n: 'inventory' | 'craft' | 'build' | 'map' | 'pause' | 'hub' | 'objective'): void {
+  private shortcut(n: 'inventory' | 'craft' | 'build' | 'map' | 'pause' | 'hub' | 'objective' | 'journal' | 'weapons' | 'nextWeapon'): void {
     if (!this.g || this.overlay) return;
+    if (n === 'nextWeapon') {
+      if (!this.isSimPaused()) this.nextWeapon();
+      return;
+    }
+    if (n === 'build' && !this.g.atCamp) {
+      this.toast('On aménage le camp et la maison seulement.', 'info');
+      return;
+    }
     if (this.scene?.placing || this.scene?.managing) {
       if (n === 'pause') this.stopPlacement();
       return;
@@ -260,7 +305,27 @@ export class App implements P.PanelHost, SceneHost {
       if (n === 'pause') return;
     }
     this.sfx('open');
-    this.openPanel(n === 'inventory' ? 'inventory' : n);
+    this.openPanel(n === 'weapons' ? 'weapons' : n);
+  }
+
+  /** Arme suivante (ordre des familles), prise dans le sac. */
+  private nextWeapon(): void {
+    const g = this.g!;
+    const cur = currentFamily(g);
+    const weapons = g.player.inv.map((s, i) => ({ s, i })).filter((x) => x.s && item(x.s.id).weapon);
+    if (!weapons.length) {
+      this.toast(g.player.equip.weapon ? 'Aucune autre arme dans le sac.' : 'Aucune arme : choisissez-en une au râtelier du camp.', 'info');
+      return;
+    }
+    const order = (id: string) => {
+      const f = item(id).weapon!.family;
+      const k = (FAMILIES.indexOf(f) - (cur ? FAMILIES.indexOf(cur) : -1) + FAMILIES.length) % FAMILIES.length;
+      return (k === 0 ? FAMILIES.length : k) * 10 - (item(id).tier ?? 1);
+    };
+    weapons.sort((a, b) => order(a.s!.id) - order(b.s!.id));
+    const r = equipSlot(g, weapons[0].i);
+    if (r.ok) this.toast(`En main : ${item(g.player.equip.weapon!.id).name}`, 'info');
+    this.hud?.forceRefresh();
   }
 
   private quickSlot(i: number): void {
@@ -281,7 +346,7 @@ export class App implements P.PanelHost, SceneHost {
   // ------------------------------------------------------------ panneaux
   openPanel(name: string, ref?: string): void {
     const layer = $('#panel-layer');
-    if (name === 'none' || (!this.g && !['options', 'help', 'credits'].includes(name))) {
+    if (name === 'none' || (!this.g && !['options', 'help', 'credits', 'confirm'].includes(name))) {
       this.closePanel();
       return;
     }
@@ -290,8 +355,28 @@ export class App implements P.PanelHost, SceneHost {
       case 'inventory':
       case 'build':
       case 'map':
+      case 'arms':
+      case 'journal':
         if (name !== this.modal) this.resetTabState(name);
         el = P.managePanelTabs(this, name);
+        break;
+      case 'weapons':
+        el = P.weaponPickPanel(this);
+        break;
+      case 'travel':
+        el = P.travelPanel(this);
+        break;
+      case 'exit':
+        el = P.exitPanel(this);
+        break;
+      case 'checkpoint':
+        el = P.checkpointPanel(this);
+        break;
+      case 'rack':
+        el = P.rackPanel(this);
+        break;
+      case 'enchant':
+        el = P.enchantPanel(this);
         break;
       case 'craft':
         // depuis une station : filtre sur cette station ; « keep » : fiche déjà choisie
@@ -324,9 +409,6 @@ export class App implements P.PanelHost, SceneHost {
         break;
       case 'bed':
         el = P.bedPanel(this);
-        break;
-      case 'sanctuary':
-        el = P.sanctuaryPanel(this);
         break;
       case 'hub':
         el = P.hubPanel(this);
@@ -399,6 +481,7 @@ export class App implements P.PanelHost, SceneHost {
     st.setProperty('--joy-opacity', String(s.joyOpacity));
     st.setProperty('--btn-scale', String(s.buttonSize));
     document.body.classList.toggle('lefty', s.leftHanded);
+    document.body.classList.toggle('reduce-flash', s.reduceFlash);
     this.controls.joyRadius = 56 * s.joySize;
     this.updateControlMode();
     const wantLow = s.quality === 'eco' || (s.quality === 'auto' && this.lowRes);
@@ -497,22 +580,37 @@ export class App implements P.PanelHost, SceneHost {
     const d = BUILDING_BY_ID[type];
     const tx = Math.floor((g.player.x + g.player.aimX * 2 * TILE) / TILE - (d.w - 1) / 2);
     const ty = Math.floor((g.player.y + g.player.aimY * 2 * TILE) / TILE - (d.h - 1) / 2);
-    this.scene.placing = { type, tx, ty };
-    this.scene.managing = false;
+    this.enterPlacement({ type, tx, ty }, `Placer : ${d.name}`);
+  }
+
+  /** Déplacer une installation : gratuit, contenu et niveau conservés. */
+  startMove(buildingId: number): void {
+    const g = this.g;
+    const b = g?.world.buildings.get(buildingId);
+    if (!g || !b || !this.scene) return;
+    this.closePanel();
+    this.enterPlacement({ type: b.type, tx: b.x, ty: b.y, moving: b.id }, `Déplacer : ${BUILDING_BY_ID[b.type].name}`);
+  }
+
+  private enterPlacement(pl: { type: string; tx: number; ty: number; moving?: number }, title: string): void {
+    this.layoutT = 0.05;
+    this.scene!.placing = pl;
+    this.scene!.managing = false;
     this.controls.reset();
     $('#controls').classList.add('hidden');
-    $('#placebar').classList.remove('hidden');
+    $('#placebar').classList.remove('hidden', 'managing');
     $('#place-ok').classList.remove('hidden');
-    $('#place-name').textContent = `Placer : ${d.name}`;
+    ($('#place-cancel') as HTMLButtonElement).textContent = 'Annuler';
+    $('#place-name').textContent = title;
     $('#place-help').textContent = document.body.classList.contains('kbd-mode')
-      ? 'Flèches ou ZQSD : déplacer l’aperçu · Entrée : valider · Échap : annuler. La souris déplace aussi l’aperçu.'
-      : 'Touchez ou glissez sur la carte pour déplacer l’aperçu (il s’affiche au-dessus du doigt).';
+      ? 'Flèches ou ZQSD : déplacer l’aperçu · Entrée : valider · Échap : annuler (gratuit). La souris déplace aussi l’aperçu.'
+      : 'Touchez ou glissez sur la carte pour déplacer l’aperçu (il s’affiche au-dessus du doigt). Annuler ne coûte rien.';
     this.updatePlaceBar();
   }
 
   startManage(): void {
     this.layoutT = 0.05;
-    if (!this.scene) return;
+    if (!this.scene || !this.g?.atCamp) return;
     this.closePanel();
     this.scene.placing = null;
     this.scene.managing = true;
@@ -521,10 +619,10 @@ export class App implements P.PanelHost, SceneHost {
     $('#placebar').classList.remove('hidden');
     $('#place-ok').classList.add('hidden');
     $('#place-name').textContent = 'Gérer le camp';
-    $('#place-reason').textContent = 'Touchez une construction encadrée';
+    $('#place-reason').textContent = 'Touchez une installation encadrée';
     $('#place-reason').className = 'ok';
     $('#placebar').classList.add('managing');
-    $('#place-help').textContent = 'Touchez une construction encadrée pour la réparer, l’améliorer ou la démolir. « Terminer » pour revenir au jeu.';
+    $('#place-help').textContent = 'Touchez une installation encadrée pour la déplacer, l’améliorer ou la démonter. La maison et les passages sont fixes. « Terminer » pour revenir au jeu.';
     ($('#place-cancel') as HTMLButtonElement).textContent = 'Terminer';
   }
 
@@ -532,7 +630,7 @@ export class App implements P.PanelHost, SceneHost {
     const g = this.g;
     const pl = this.scene?.placing;
     if (!g || !pl) return;
-    const c = canPlace(g, pl.type, pl.tx, pl.ty);
+    const c = canPlace(g, pl.type, pl.tx, pl.ty, pl.moving !== undefined ? g.world.buildings.get(pl.moving) : undefined);
     const r = $('#place-reason');
     r.textContent = c.ok ? 'Emplacement valide' : c.reason ?? 'Invalide';
     r.className = c.ok ? 'ok' : 'bad';
@@ -543,15 +641,24 @@ export class App implements P.PanelHost, SceneHost {
     const g = this.g;
     const pl = this.scene?.placing;
     if (!g || !pl) return;
+    if (pl.moving !== undefined) {
+      const r = moveBuilding(g, pl.moving, pl.tx, pl.ty);
+      if (!r.ok) g.toast(r.reason ?? 'Déplacement impossible', 'warn');
+      else {
+        this.stopPlacement();
+        this.startManage();
+      }
+      return;
+    }
     const r = place(g, pl.type, pl.tx, pl.ty);
     if (!r.ok) {
       g.toast(r.reason ?? 'Placement impossible', 'warn');
       return;
     }
-    // on enchaîne tant que les ressources suffisent (pratique pour les murs)
+    // on enchaîne tant que les ressources suffisent (pratique pour les décors répétés)
     const d = BUILDING_BY_ID[pl.type];
-    const again = Object.entries(d.cost).every(([id, n]) => g.player.inv.reduce((s, x) => s + (x && x.id === id ? x.qty : 0), 0) >= n);
-    if (!again || !['palisade', 'spikes', 'lamp', 'trap'].includes(pl.type)) this.stopPlacement();
+    const again = canPlace(g, pl.type, pl.tx + d.w, pl.ty).reason?.startsWith('Manque') !== true;
+    if (!again || !['palisade', 'spikes', 'lamp', 'trap', 'cask'].includes(pl.type)) this.stopPlacement();
   }
 
   stopPlacement(): void {
@@ -588,7 +695,7 @@ export class App implements P.PanelHost, SceneHost {
 
   // ------------------------------------------------------------ messages
   toast(text: string, kind: 'info' | 'warn' | 'good' | 'tip' = 'info'): void {
-    if (this.overlay === 'death' || this.overlay === 'victory') return;
+    if (this.overlay === 'death' || this.overlay === 'runEnd') return;
     const box = $('#toasts');
     // messages identiques successifs : un seul message avec compteur
     const last = box.lastElementChild as HTMLElement | null;
@@ -636,17 +743,17 @@ export class App implements P.PanelHost, SceneHost {
       this.titleGame = Game.newGame(Math.floor(Math.random() * 1e9));
       this.scene.setGame(this.titleGame);
       this.scene.cameras.main.stopFollow();
-      this.scene.cameras.main.centerOn(this.titleGame.player.x, this.titleGame.player.y - 200);
+      this.scene.cameras.main.centerOn(this.titleGame.player.x, this.titleGame.player.y - 60);
     }
     this.audio.setMusic('music_title');
     this.audio.setFireLevel(0);
     const saved = await hasSave();
-    const art = h('div', { class: 'titleart' }, icon('world:tree_pine_a', 72), icon('world:campfire_1', 40), icon('world:seal_stone', 56), icon('world:tree_dead', 72));
+    const art = h('div', { class: 'titleart' }, icon('items:i_longsword', 56), icon('world:campfire_1', 40), icon('items:i_book_red', 44), icon('items:i_crossbow', 56));
     const list = h('div', { class: 'menu-list' });
     if (saved) list.append(h('button', { class: 'btn primary', text: 'Continuer', onclick: () => void this.continueGame() }));
     list.append(
       h('button', { class: 'btn' + (saved ? '' : ' primary'), text: 'Nouvelle partie', onclick: () => {
-        if (saved) this.confirm('Une sauvegarde existe. La nouvelle partie la remplacera (la précédente reste en secours jusqu’à la prochaine sauvegarde). Continuer ?', 'Nouvelle partie', () => { this.closePanel(); this.newGame(); });
+        if (saved) this.confirm('Une sauvegarde existe. La nouvelle partie la remplacera (la précédente reste en secours jusqu’à la prochaine sauvegarde ; pensez à l’exporter depuis la pause si besoin). Continuer ?', 'Nouvelle partie', () => { this.closePanel(); this.newGame(); });
         else this.newGame();
       } }),
       h('button', { class: 'btn', text: 'Importer une sauvegarde', onclick: () => this.importSave() }),
@@ -654,9 +761,10 @@ export class App implements P.PanelHost, SceneHost {
       h('button', { class: 'btn', text: 'Commandes et règles', onclick: () => this.openPanel('help') }),
       h('button', { class: 'btn', text: 'Crédits', onclick: () => this.openPanel('credits') }),
     );
+    if (this.hasLegacy) list.append(h('button', { class: 'btn', text: 'Exporter l’ancienne sauvegarde (V1)', onclick: () => this.exportLegacy() }));
     const land = matchMedia('(orientation: portrait)').matches ? h('div', { class: 'hint-land', text: 'Conseil : le mode paysage offre la meilleure vue. Le portrait reste jouable.' }) : null;
     this.screen(h('div', { class: 'screen title' }, art, h('h1', { text: 'Les Bois de Cendre' }),
-      h('div', { class: 'sub', text: 'Survie et construction dans une forêt médiévale infestée de morts. Retrouvez les trois fragments du sceau et libérez la forêt.' }),
+      h('div', { class: 'sub', text: 'RPG d’exploration en solo. Depuis votre camp, partez en expédition, maîtrisez sept familles d’armes, vainquez les maîtres des ruines et descendez les paliers des donjons.' }),
       list, land, h('div', { class: 'version', text: `Version ${this.version}` })), 'title');
   }
 
@@ -664,7 +772,7 @@ export class App implements P.PanelHost, SceneHost {
     const seed = (Math.random() * 2 ** 31) >>> 0;
     const g = Game.newGame(seed);
     this.startGame(g);
-    this.gate('Un ancien camp abandonné', 'Vous émergez des bois et découvrez un camp déserté. Le soleil est encore haut : fouillez le camp, récoltez, fabriquez un outil et préparez-vous avant la nuit. L’objectif en haut de l’écran vous guide (touchez-le pour les détails ou pour passer l’introduction).', 'Commencer');
+    this.gate('Le camp des Cendres', 'Vous arrivez dans un camp abandonné à la lisière des bois, un lieu sûr : rien ne vous y attaquera et la faim n’y baisse pas. Commencez par choisir une arme au râtelier, près du feu. L’objectif en haut de l’écran vous guide (touchez-le pour le journal ou pour passer le guidage).', 'Je suis prêt');
     void this.saveNow('start');
   }
 
@@ -682,9 +790,16 @@ export class App implements P.PanelHost, SceneHost {
       return;
     }
     this.startGame(g);
-    let msg = res.usedBackup ? `La dernière sauvegarde était invalide (${res.error}). La sauvegarde de secours précédente a été chargée.` : `Jour ${g.day} · ${Math.round(g.world.exploredRatio() * 100)} % exploré · ${g.fragmentsFound()}/3 fragments.`;
-    if (g.genVersion < 2) msg += ' Votre monde est conservé tel quel : les nouvelles scènes d’exploration n’apparaissent que dans les nouvelles parties.';
-    this.gate('Partie chargée', msg, 'Je suis prêt');
+    if (res.migrated) {
+      this.hasLegacy = true;
+      void this.saveNow('migrate');
+    }
+    const where = placeName(g);
+    let msg = res.usedBackup ? `La dernière sauvegarde était invalide (${res.error}). La sauvegarde de secours précédente a été chargée. ` : '';
+    if (res.migrated || g.migrationNote) msg += `${g.migrationNote ?? 'Votre ancienne partie a été convertie.'} Une copie intacte de l’ancienne sauvegarde est conservée (Pause → Exporter l’ancienne sauvegarde). `;
+    msg += `Lieu : ${where}. La partie reprend quand vous êtes prêt.`;
+    g.migrationNote = null;
+    this.gate(res.migrated ? 'Nouvelle version du jeu' : 'Partie chargée', msg, 'Je suis prêt');
   }
 
   private startGame(g: Game): void {
@@ -747,41 +862,36 @@ export class App implements P.PanelHost, SceneHost {
     $('#hud').classList.remove('hidden');
   }
 
-  private showDeath(reason: string, lost: number, hasBag: boolean, atBed: boolean): void {
+  private showDeath(sm: DeathSummary): void {
     const g = this.g!;
     setTimeout(() => {
       if (this.g !== g) return;
+      const lines: HTMLElement[] = [h('p', { text: sm.reason })];
+      if (sm.where === 'farm') {
+        lines.push(h('p', { text: 'Retour au camp. Vous perdez 20 % des ressources de cette sortie encore dans votre sac (les réserves emportées au départ et l’équipement sont protégés).' }));
+        lines.push(sm.lost.length
+          ? h('ul', { class: 'loss' }, ...sm.lost.map((x) => h('li', {}, icon(item(x.id).icon, 18), `−${x.n} ${item(x.id).name}`)))
+          : h('p', { class: 'note-muted', text: 'Perte : rien (récolte trop faible pour être entamée).' }));
+      } else if (sm.where === 'main') {
+        lines.push(h('p', { text: `Retour ${sm.checkpoint ? `au point de halte « ${sm.checkpoint} »` : 'à l’entrée de la région'}. Les ennemis ordinaires sont revenus ; boss vaincus, coffres ouverts, portes et raccourcis restent acquis. Rien n’est perdu dans le sac.` }));
+      } else if (sm.where === 'dungeon') {
+        lines.push(h('p', { text: `Retour ${sm.checkpoint ? `au point de halte « ${sm.checkpoint} »` : 'à l’entrée du donjon'}. Le palier ne change pas. Rien n’est perdu dans le sac.` }));
+      } else lines.push(h('p', { text: 'Vous vous relevez au camp.' }));
       this.screen(h('div', { class: 'screen dim' }, h('div', { class: 'card' },
-        h('h2', { text: 'Vous êtes tombé' }),
-        h('p', { text: reason }),
-        h('p', { class: 'note-muted', text: hasBag ? `${lost} objet(s) sont restés dans un sac à l’endroit de votre chute (indiqué sur la carte). Vos objectifs et fragments sont conservés.` : 'Vous n’avez rien perdu. Vos objectifs et fragments sont conservés.' }),
-        h('p', { class: 'note-muted', text: atBed ? 'Vous réapparaîtrez près de votre paillasse, protégé quelques secondes.' : 'Vous réapparaîtrez au camp de départ, protégé quelques secondes. Construisez une paillasse pour changer ce point.' }),
-        h('div', { class: 'actions', style: { justifyContent: 'center' } }, h('button', { class: 'btn primary', text: 'Réapparaître', onclick: () => { g.respawn(); this.screen(null, null); } })))), 'death');
+        h('h2', { text: 'Vous êtes tombé' }), ...lines,
+        h('div', { class: 'actions', style: { justifyContent: 'center' } }, h('button', { class: 'btn primary', text: 'Se relever', onclick: () => { respawn(g); this.screen(null, null); } })))), 'death');
     }, 1400);
   }
 
-  private showVictory(): void {
+  private showRunEnd(title: string, text: string): void {
     const g = this.g!;
-    g.victorySeen = true;
-    const s = g.stats;
-    const built = Object.values(s.built).reduce((a, b) => a + b, 0);
-    const min = Math.round(s.playTime / 60);
-    this.screen(h('div', { class: 'screen dim' }, h('div', { class: 'card' },
-      h('h2', { text: 'La forêt est libérée' }),
-      h('p', { text: 'Le sceau du Loup brille à nouveau. Les morts retournent à la terre et le silence revient sous les arbres.' }),
-      h('div', { class: 'statsgrid' },
-        h('span', { text: 'Jours survécus' }), h('b', { text: String(g.day) }),
-        h('span', { text: 'Morts' }), h('b', { text: String(s.deaths) }),
-        h('span', { text: 'Ennemis vaincus' }), h('b', { text: String(s.kills) }),
-        h('span', { text: 'Exploration' }), h('b', { text: `${Math.round(g.world.exploredRatio() * 100)} %` }),
-        h('span', { text: 'Constructions' }), h('b', { text: String(built) }),
-        h('span', { text: 'Notes lues' }), h('b', { text: `${s.notesRead.length}/${g.world.objects.filter((o) => o.type === 'note').length}` }),
-        h('span', { text: 'Temps de jeu' }), h('b', { text: `${min} min` }),
-      ),
-      h('div', { class: 'actions', style: { justifyContent: 'center' } },
-        h('button', { class: 'btn primary', text: 'Continuer à explorer', onclick: () => { this.screen(null, null); void this.saveNow('victory'); } }),
-        h('button', { class: 'btn', text: 'Nouvelle partie', onclick: () => this.confirm('Commencer une nouvelle partie ? La partie actuelle sera remplacée.', 'Nouvelle partie', () => { this.closePanel(); this.newGame(); }) }),
-      ))), 'victory');
+    setTimeout(() => {
+      if (this.g !== g || this.overlay) return;
+      this.audio.play('victory');
+      this.screen(h('div', { class: 'screen dim' }, h('div', { class: 'card' },
+        h('h2', { text: title }), h('p', { text }),
+        h('div', { class: 'actions', style: { justifyContent: 'center' } }, h('button', { class: 'btn primary', text: 'Continuer', onclick: () => this.screen(null, null) })))), 'runEnd');
+    }, 1200);
   }
 
   quitToTitle(): void {
@@ -810,12 +920,30 @@ export class App implements P.PanelHost, SceneHost {
     const data = JSON.stringify(serialize(this.g));
     const blob = new Blob([data], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = h('a', { href: url, download: `bois-de-cendre-jour${this.g.day}.json` });
+    const a = h('a', { href: url, download: `bois-de-cendre-v2-${new Date().toISOString().slice(0, 10)}.json` });
     document.body.append(a);
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
     this.toast('Sauvegarde exportée (fichier JSON).', 'good');
+  }
+
+  /** Exporte la copie intacte de la sauvegarde de l'ancienne version. */
+  exportLegacy(): void {
+    void getLegacy().then((raw) => {
+      if (raw === undefined) {
+        this.toast('Aucune ancienne sauvegarde conservée.', 'info');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(raw)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = h('a', { href: url, download: 'bois-de-cendre-v1-ancienne-sauvegarde.json' });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+      this.toast('Ancienne sauvegarde exportée (fichier JSON).', 'good');
+    });
   }
 
   importSave(): void {
@@ -830,13 +958,28 @@ export class App implements P.PanelHost, SceneHost {
           this.toast(v.error, 'warn');
           return;
         }
-        this.confirm('Importer ce fichier remplacera la partie en cours (la sauvegarde actuelle devient la sauvegarde de secours). Continuer ?', 'Importer', async () => {
+        const legacy = isLegacy(data);
+        this.confirm(legacy
+          ? 'Ce fichier vient de l’ancienne version : vos possessions seront converties dans une nouvelle partie V2 (le fichier lui-même n’est pas modifié). La partie actuelle devient la sauvegarde de secours. Continuer ?'
+          : 'Importer ce fichier remplacera la partie en cours (la sauvegarde actuelle devient la sauvegarde de secours). Continuer ?', 'Importer', async () => {
           this.closePanel();
-          const g = deserialize(v.data);
-          const res = await writeSave(v.data);
+          let g: Game;
+          try {
+            g = deserialize(v.data);
+          } catch (e) {
+            this.toast(`Fichier refusé : ${(e as Error).message}. Rien n’a été remplacé.`, 'warn');
+            return;
+          }
+          if (legacy) {
+            await keepLegacy(data);
+            this.hasLegacy = true;
+          }
+          const res = await writeSave(serialize(g));
           if (!res.ok) this.toast(`Import chargé mais non enregistré : ${res.error}`, 'warn');
           this.startGame(g);
-          this.gate('Sauvegarde importée', `Jour ${g.day} · ${g.fragmentsFound()}/3 fragments.`, 'Je suis prêt');
+          const note = g.migrationNote;
+          g.migrationNote = null;
+          this.gate('Sauvegarde importée', `${note ? `${note} ` : ''}Lieu : ${placeName(g)}.`, 'Je suis prêt');
         });
       } catch {
         this.toast('Fichier illisible : ce n’est pas un JSON valide.', 'warn');

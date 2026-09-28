@@ -359,13 +359,27 @@ def carriere():
     c.rect(4, 41, 10, 3, '#')
     c.rect(50, 46, 10, 4, '#')
     # décor
-    c.scatter('r', 2, 2, 60, 10, 0.04)
-    c.scatter('p', 2, 2, 60, 36, 0.03)
-    c.scatter('"', 2, 2, 60, 10, 0.05)
-    c.scatter('r', 2, 15, 60, 13, 0.03)
-    c.scatter('r', 2, 30, 60, 8, 0.05)
-    c.scatter('x', 4, 41, 56, 9, 0.02)
-    c.scatter('s', 4, 41, 56, 9, 0.01)
+    D = (',',)
+    # crête : arbres morts, broussailles, éboulis
+    c.scatter('t', 2, 2, 60, 2, 0.35, on=D)
+    for (x, y) in [(14, 6), (26, 9), (44, 5), (52, 9), (60, 7), (33, 4)]:
+        c.put(x, y, 'tt')
+    c.scatter('r', 2, 2, 60, 10, 0.05, on=D, clear=1)
+    c.scatter('"', 2, 2, 60, 10, 0.07, on=D)
+    c.scatter('p', 2, 2, 60, 36, 0.05, on=D)
+    # terrasse moyenne : blocs équarris, rochers
+    c.scatter('r', 2, 15, 60, 13, 0.05, on=D, clear=1)
+    for (x, y) in [(8, 18), (12, 24), (46, 25), (54, 16), (18, 17)]:
+        c.put(x, y, 'RR')
+    c.scatter('t', 2, 26, 60, 1, 0.2, on=D)
+    # fond de carrière : éboulis denses
+    c.scatter('r', 2, 30, 60, 8, 0.07, on=D, clear=1)
+    c.scatter('s', 2, 30, 60, 8, 0.02, on=D)
+    # galeries
+    c.scatter('x', 4, 41, 56, 9, 0.02, on=D)
+    c.scatter('s', 4, 41, 56, 9, 0.02, on=D)
+    c.scatter('w', 4, 41, 56, 9, 0.02, on=D)
+    c.scatter('p', 4, 41, 56, 9, 0.04, on=D)
     for (x, y) in [(56, 18), (58, 21), (55, 24), (59, 17)]:
         c.set(x, y, 'o')
     for (x, y) in [(57, 20), (60, 24)]:
