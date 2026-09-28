@@ -85,7 +85,7 @@ def bois():
     # cache du braconnier (nord-ouest), accessible par un passage étroit
     c.rect(2, 2, 10, 10, 'T')
     c.rect(3, 3, 5, 4, '.')
-    c.path([(10, 13), (8, 9), (6, 6)], '.', width=1)
+    c.path([(10, 13), (8, 9), (6, 6)], '.', width=1.8)
     # tanière du prédateur : falaise au nord-est et clairière
     c.rect(49, 0, 15, 3, '#')
     c.rect(49, 3, 13, 11, ',')
@@ -151,6 +151,8 @@ def bois():
         c.set(x, y, '4')  # cerfs
     for (x, y) in [(20, 33), (12, 26)]:
         c.set(x, y, '5')  # rats et cerf
+    # passage de la cache (tracé en dernier : rien ne doit le refermer)
+    c.rect(7, 7, 2, 7, '.')
     return c
 
 
@@ -233,6 +235,8 @@ def marais():
     c.set(19, 24, 'F')  # fleur dévoreuse sur le passage étroit
     c.set(40, 20, 'F')
     c.set(34, 30, '4')  # rats
+    # le chemin du nord contourne la maison par l'est
+    c.rect(33, 16, 3, 3, ',')
     return c
 
 

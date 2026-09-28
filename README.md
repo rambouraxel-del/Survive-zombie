@@ -1,130 +1,73 @@
 # Les Bois de Cendre
 
-Jeu solo de survie et de construction dans une forêt médiévale infestée de zombies, en pixel art
-vu de trois-quarts (façon Zelda classique). Jouable dans le navigateur, **pensé d’abord pour le
-téléphone** (paysage recommandé, portrait jouable) et aussi sur ordinateur. Aucun compte, aucune
-publicité, aucun serveur : tout tourne dans la page et la sauvegarde reste sur l’appareil.
+RPG d’exploration **solo** en pixel art vu de trois-quarts, dans un monde médiéval sombre.
+Jouable dans le navigateur, **pensé d’abord pour le téléphone** (paysage recommandé, portrait
+jouable) et sur ordinateur. Aucun compte, aucune publicité, aucun achat, aucun serveur : la
+sauvegarde reste sur l’appareil.
 
-## Présentation et règles
+## Le jeu (V2)
 
-Vous découvrez un ancien camp abandonné au sud de la forêt. Il faut récolter, fabriquer son
-équipement, se nourrir, construire des défenses, puis explorer trois lieux maudits pour y
-reprendre les **trois fragments du sceau** :
+**Un camp, des expéditions.** Le camp est sûr : personne n’y attaque, la faim n’y baisse pas. On y
+choisit son arme de départ au râtelier, on fabrique (établi, feu, forge), on grave des
+enchantements, on range ses coffres, on aménage le camp et l’intérieur de la maison (placement
+clair, annulation gratuite, déplacement, démontage remboursé et annoncé). Au camp, la fabrication
+puise aussi dans les coffres.
 
-| Lieu | Direction depuis le camp | Ambiance |
+**Carrefour des expéditions** (au sud du camp) : chaque destination affiche son type, son état,
+sa condition d’ouverture, son danger, ses récompenses, son point de halte et ses paliers.
+
+| Destination | Type | Particularités |
 |---|---|---|
-| Ruines du hameau | est | maisons abandonnées, coffres, forge du prévôt |
-| Cimetière | ouest | tombes, crypte, morts plus nombreux |
-| Pierres noires | nord-ouest, dans les bois corrompus | cercle de pierres, brutes |
+| Bois des chasseurs | ressources, de jour | bois, pierre, gibier, herbes ; tanière d’un prédateur (boss facultatif) |
+| Marais corrompu | ressources, de nuit | mousse noire, champignons luminescents, feux follets ; lanternes votives |
+| Bastion abandonné | expédition principale | herses, leviers, raccourcis ; le chef des mercenaires ; ouvre la Carrière et un donjon |
+| Ancienne carrière | expédition principale | terrasses, échelle-raccourci, galeries ; le Ver des profondeurs ; ouvre un donjon |
+| Bastion hanté · Profondeurs | donjons, paliers 1 à 5 | reprennent les décors ; ennemis plus forts à chaque palier |
 
-Déposez les fragments sur la **pierre du Loup** (sanctuaire, tout au nord), préparez vos
-défenses, puis déclenchez vous-même **l’assaut final** (trois vagues). Après la victoire, un
-écran de conclusion affiche vos statistiques et vous pouvez continuer à explorer ou recommencer.
+- **Sortie de ressources** : nouvelle instance à chaque départ. Rentrer met la récolte en sûreté ;
+  une chute fait perdre **20 %** des ressources de la sortie encore portées (les réserves
+  emportées et l’équipement sont protégés), avec le détail affiché.
+- **Expédition principale** : la progression est conservée (points de halte, portes, coffres
+  vidés, boss). Une chute ramène au dernier point de halte ; les ennemis ordinaires reviennent.
+- **Donjon** : un palier ne progresse qu’après une victoire ; une défaite ne change jamais le
+  palier. Un court délai sépare deux instances récompensées ; chaque instance a son identifiant.
 
-**Survie** — trois jauges seulement :
-- **Santé** : baisse sous les coups ; remonte lentement si vous êtes nourri et hors combat (plus
-  vite près d’un feu), et grâce aux bandages et aux repas.
-- **Faim** : baisse lentement (100 points en 15 minutes). En dessous de 30 : avertissement et
-  récupération d’endurance ralentie ; à zéro, vous perdez des PV progressivement.
-- **Endurance** : attaques, esquives et course ; se recharge vite au repos.
+**Sept familles d’armes** : dague, épée longue, masse/hache, arc, arbalète, magie élémentaire,
+magie occulte, chacune en trois rangs (21 armes). Changement d’arme permis partout, même en
+combat. Attaques de base : endurance ou mana, **aucune munition**. Trois compétences par famille
+(deux équipées, recharges indépendantes qui continuent hors de la main, choix mémorisé) et un
+**ultime** par famille, à visée manuelle, alimenté par une jauge commune (dégâts infligés et subis).
+La **maîtrise** de chaque famille ne vient que des vrais dégâts sur de vrais ennemis ; elle débloque
+compétences, ultime et armes de rang supérieur. Le mannequin sert à s’entraîner, sans maîtrise.
 
-**Nourriture** : myrtilles et morilles (clairement comestibles) se mangent crues ; la viande vient
-des pièges à gibier ; le feu de camp cuit la viande et prépare des plats plus nourrissants
-(brochette de morilles, ragoût du forestier). Les zombies ne laissent jamais de nourriture.
+**Équipement** : protections (gambison, cotte de mailles, brigandine), accessoires, potions,
+bombes. Le meilleur équipement se fabrique avec les matériaux des boss et des donjons. Un
+enchantement par objet (le remplacer est annoncé), conservé partout.
 
-**Jour et nuit** : un cycle dure environ 11 minutes (jour ≈ 6 min 40, crépuscule 1 min, nuit
-3 min, aube 20 s ; le premier jour est un peu plus long). La cloche du crépuscule annonce la
-horde : chaque nuit, un groupe de zombies converge vers vous, de plus en plus nombreux (rôdeurs,
-puis affamés dès la 2ᵉ nuit, brutes dès la 3ᵉ). À l’aube, les survivants se retirent.
+**Ennemis** : rats, loups, cerfs, mercenaires, archers, renards et ours corrompus, égarés enfouis,
+âmes, plantes carnivores ; trois boss avec attaques annoncées, fenêtres de riposte et résistance
+aux contrôles. Visée légèrement assistée ; toutes les attaques ennemies sont signalées au sol.
 
-**Zombies** : le **rôdeur** (lent, fréquent), l’**affamé** (rapide, fragile) et la **brute**
-(lente, très résistante, redoutable contre les constructions). Ils errent, entendent la récolte
-et les combats, vous poursuivent, vous cherchent quand ils vous perdent de vue, contournent les
-obstacles et attaquent palissades et portes si le passage est fermé. Chaque attaque est annoncée
-(clignotement rouge et « ! ») : esquivez ou reculez.
+**Faim** : ne baisse qu’en expédition, effets progressifs (récupération, puis endurance, puis PV).
+Aliments et soins affichent leur gain réel et refusent un usage inutile. **Pas de monnaie.**
 
-**Mort** : la moitié de votre sac tombe dans un sac récupérable, indiqué sur la carte. Vous
-réapparaissez à votre paillasse (ou au camp) avec une protection de quelques secondes ; les
-ennemis proches s’éloignent. Objectifs et fragments sont toujours conservés.
-
-**Fabrication** : 21 recettes réparties entre la main, l’établi, le feu de camp et la forge
-(outils de pierre puis de fer, lance, massue, épée, arc et flèches, bandages, torche, gambison,
-brigandine, corde, planches, charbon de bois, lingots, plats cuisinés). Chaque recette montre les
-ingrédients possédés/requis, la quantité produite, la station nécessaire, et explique pourquoi
-elle est indisponible. Les outils s’usent mais ne disparaissent jamais : un outil cassé se répare.
-
-**Construction** : feu de camp, établi, coffre, paillasse, palissade, porte, pieux défensifs,
-forge, piège à gibier, lanterne sur poteau. Aperçu du vrai sprite, case verte/rouge avec la
-raison du refus, validation explicite, annulation sans coût, réparation, démolition avec
-remboursement annoncé (50 %). Un coffre détruit laisse son contenu dans un sac.
+**Guidage** : objectif en haut de l’écran, journal (objectifs, facultatifs, carnet de route),
+premier lancement guidé et passable, conseils affichés une seule fois (réactivables).
 
 ## Commandes
 
-### Téléphone
-| Commande | Effet |
-|---|---|
-| Joystick (zone du pouce, à gauche ; à droite en disposition gaucher) | se déplacer ; poussé à fond : course |
-| **Attaque** (grand bouton) | frappe l’ennemi le plus proche à portée de l’arme (visée assistée) ; sans ennemi, récolte |
-| **Action** | un verbe court (Couper, Miner, Cueillir, Fouiller, Lire, Réparer…) ; le nom de la cible s’affiche près d’elle. Maintenir pour répéter |
-| Toucher un objet proche | le choisit comme cible, sans déplacer le personnage |
-| **Esquive** | courte roulade invulnérable (coûte de l’endurance) |
-| Raccourcis (5 cases) | manger, soigner ou équiper d’un toucher ; une case vide ouvre le choix d’un objet |
-| **Sac** et **Menu** (en haut à droite) | le Menu donne accès à Fabriquer, Construire, Carte, Objectif et Pause ; les écrans de gestion sont regroupés en onglets (Sac, Fabriquer, Construire, Carte) |
-| Ligne d’objectif (en haut) | objectif et progression ; la toucher affiche les détails (jeu en pause) et permet de passer l’introduction |
-| Recette suivie (sous l’objectif) | ressources manquantes de la recette épinglée ; la toucher ouvre sa fiche |
+**Téléphone** : joystick à gauche (à fond : course) ; à droite attaque, action, esquive, deux
+compétences, ultime (maintenir, glisser pour viser, relâcher ; relâcher sur « annuler » l’annule),
+bouton d’arme (appui : arme suivante, appui long : liste). Raccourcis en bas. Disposition
+**gaucher** en option ; zones de sécurité respectées ; portrait et paysage.
 
-Plusieurs doigts fonctionnent en même temps (marcher en attaquant, etc.). Un appui très bref n’est
-jamais perdu ; perte de focus, rotation de l’écran, appel système ou ouverture d’un menu relâchent
-toutes les commandes. Les aides élémentaires disparaissent une fois apprises (Options → Aides pour
-les revoir).
+**Clavier** : ZQSD/WASD/flèches, Maj courir, Espace/J attaquer, E action, K esquive, U et I
+compétences, L (maintenir) ultime visé à la souris, R arme suivante, G liste des armes, 1–5
+raccourcis, Tab sac, C fabrication, B aménager, M carte, N journal, Échap pause.
 
-### Ordinateur
-Les commandes tactiles se masquent quand on joue au clavier ou à la souris et réapparaissent dès
-qu’on touche l’écran (appareils hybrides). Les raccourcis clavier s’affichent à gauche au début.
-
-| Touche | Effet |
-|---|---|
-| ZQSD / WASD / flèches | se déplacer (Maj : courir) |
-| Espace ou J | attaquer |
-| E, F ou Entrée | action contextuelle |
-| K ou X | esquiver |
-| 1 à 5 | raccourcis |
-| I ou Tab · C · B · M | sac · fabrication · construction · carte |
-| Échap | pause (ou annuler une construction) |
-
-### Options
-Type de commandes (automatique, tactile, clavier), taille et opacité du joystick, taille des
-boutons, disposition gaucher, qualité d’affichage (automatique, haute, économie), volumes,
-secousses, aides ; le mode debug (images par seconde, temps de calcul, collisions) est dans
-« Avancé », avec l’identifiant de version (aussi affiché sur l’écran titre).
-
-## Nouveautés de la mise à jour « confort »
-
-- **Raccourcis indépendants du sac** : chaque case désigne un type d’objet ; quantité et état
-  épuisé affichés ; les matériaux n’y vont jamais d’eux-mêmes ; les premiers aliments, soins et
-  outils vont seulement dans une case libre ; une affectation manuelle n’est jamais remplacée.
-- **Fabrication** : ordre fixe (rien ne bouge sous le doigt), filtres par station et
-  « Fabricables seulement », fiche détaillée au toucher (usage, ingrédients possédés/requis,
-  station, quantité produite, effets chiffrés, comparaison avec l’équipement), fer travaillé en
-  une seule fiche avec deux méthodes (minerai ou ferraille), quantités ×1 / ×5 / maximum,
-  recette épinglée.
-- **Nourriture** : la fiche d’un aliment indique le gain réel selon la faim actuelle et le surplus
-  perdu ; manger n’est plus possible quand cela ne sert à rien.
-- **Carte** : centrée sur le joueur, zoom adapté à la zone découverte, zoom +/−, glisser et pincer,
-  recentrage, nord, légende, marqueurs personnels nommés (ressource, danger, camp, à revoir).
-- **Introduction** : fouiller le coffre, lire le carnet, récolter (ressources proches signalées),
-  fabriquer un premier outil (son avantage est annoncé), puis préparer la nuit (arme, repas, feu,
-  défenses conseillées). Elle peut être passée ; ce qui est déjà fait compte.
-- **Équipement visible** : haches, masse, pioche, lance, épée, massue, arc et armures portés par
-  le personnage (calques du générateur LPC).
-- **Camp** : coffre agrandi (24 cases, contenu conservé), feu amélioré (lumière et repos),
-  établi renforcé (réparations à moitié prix, une planche de plus).
-- **Exploration** (nouvelles parties) : bivouac abandonné, barricade brisée, tombe ouverte,
-  réserve de chasseurs, chacun avec une note, un butin en rapport et, pour deux d’entre eux, des
-  gardiens. Signaux de menace : « ! » quand un zombie vous repère, repère discret au bord de
-  l’écran pour un grognement proche ou un poursuivant hors de vue (pas de radar).
-- **Combat** : visée assistée à portée réelle de l’arme ; hordes nocturnes arrivant par petits
-  groupes.
+**Options** : volumes, muet, taille/opacité du joystick, taille des boutons, gaucher, qualité,
+**réduire les secousses**, **réduire les flashs**. La pause fige tout (aucun temps ne passe).
+Aucun son avant le premier geste ; musique selon le lieu (camp, région, combat, boss) avec fondus.
 
 ## Installation locale (étape par étape)
 
@@ -143,13 +86,13 @@ Autres commandes :
 
 | Commande | Rôle |
 |---|---|
-| `npm test` | tests unitaires des règles (génération, inventaire, craft, construction, combat, sauvegarde, équilibrage…) |
+| `npm test` | tests unitaires ciblés (cartes accessibles, pertes de sortie, paliers de donjon, recharges, ultime, arbalète, fabrication depuis les coffres, enchantement, sauvegarde, migration V1, boucle complète) |
 | `npm run typecheck` | vérification TypeScript |
 | `npm run build` | build de production dans `dist/` |
 | `npm run preview` | sert le build de production localement |
-| `npm run e2e` | test de bout en bout dans Chromium (après `npm run build` ; nécessite un Chromium pour Playwright, sinon `npx playwright install chromium`) |
-| `node tests/e2e/perf.mjs <url>` | mesures de performance par scénario (simulation, scène, rendu, interface) |
-| `node tests/e2e/compare-shots.mjs <url> <dossier> <préfixe>` | captures comparables (même sauvegarde, mêmes écrans, 4 formats) |
+| `npm run e2e` | parcours en navigateur (titre, camp, râtelier, chaque région, panneaux) avec captures — après `npm run build` et `npm run preview` |
+| `node tests/e2e/map-overview.mjs <url> <dossier>` | vue d’ensemble de chaque carte (relecture du level design) |
+| `node tests/e2e/check-deployed.mjs <url>` | vérification d’un site publié (assets, version, partie, interface, reprise) |
 
 ## Déploiement sur GitHub Pages
 
@@ -176,23 +119,39 @@ local, et le rechargement de la page fonctionne (application d’une seule page,
 
 ## Sauvegarde et export
 
-- Sauvegarde **automatique** toutes les 60 s et après chaque étape importante (construction,
-  objectif, fragment, aube, sommeil, victoire), ainsi qu’au passage en arrière-plan.
-- Stockage local dans **IndexedDB** (repli sur `localStorage`), sauvegarde **versionnée**, avec une
-  **sauvegarde de secours** : si la dernière est corrompue, la précédente est chargée et un message
-  l’indique. Un message explicite s’affiche si le stockage échoue (navigation privée, espace plein).
-- **Menu → Pause → Exporter la sauvegarde** télécharge un fichier JSON ; **Importer une
-  sauvegarde** (Pause ou écran titre) le valide avant de le charger : un fichier invalide, corrompu
-  ou d’une version plus récente est refusé et ne remplace pas la sauvegarde existante.
-- Le butin est tiré de façon déterministe : recharger ne permet pas de refaire un coffre.
-- Au chargement et au retour d’arrière-plan, le jeu attend votre confirmation (« Je suis prêt »).
+- Sauvegarde automatique (toutes les 45 s et à chaque étape : départ, retour, point de halte,
+  boss, fabrication, construction), et au passage en arrière-plan. Stockage **IndexedDB** (repli
+  `localStorage`), format **versionné (3)** en sections séparées (profil, camp, maison, régions,
+  expédition en cours, donjons), avec **sauvegarde de secours**.
+- **Reprise** : le jeu attend toujours « Je suis prêt ». Une expédition interrompue (rechargement)
+  reprend telle quelle : même instance, coffres déjà vidés, ennemis vaincus. Recharger la page ne
+  donne jamais de nouveau butin.
+- **Pause → Exporter / Importer** : l’import est validé avant de remplacer quoi que ce soit.
 
-**Compatibilité** : les sauvegardes de la version précédente (format 1) sont converties au
-chargement (format 2) sans perte ni duplication d’objets : les raccourcis sont créés à partir des
-objets utiles, l’introduction n’est pas imposée, le monde est **conservé tel quel** (les nouvelles
-scènes d’exploration n’apparaissent que dans les nouvelles parties, ce que le jeu indique à la
-reprise). Des sauvegardes réelles de l’ancien format servent de référence aux tests
-(`tests/fixtures/`).
+**Ancienne version (V1)** : au premier chargement, une **copie intacte** de l’ancienne sauvegarde
+est conservée (Pause ou écran titre → « Exporter l’ancienne sauvegarde (V1) »). Les possessions
+sont converties dans une partie V2 : massue → masse I, épée → épée I, arc → arc I ; lances,
+flèches et constructions sont remboursées en matériaux ; le tout est rangé dans des **coffres de
+transfert** au camp. Les fragments du sceau n’existent plus. La première sortie est considérée
+comme faite (Marais et Bastion ouverts). Un message récapitule la conversion.
+
+## Restaurer la version précédente (V1)
+
+La V1 est conservée telle quelle sur la branche **`backup/pre-v2-20260927-2103`** (commit
+`c7490e8`). Pour la remettre en ligne sans rien effacer :
+
+1. Remettre les fichiers de la V1 sur `main`, par un nouveau commit :
+   ```bash
+   git fetch origin
+   git checkout main && git pull
+   git rm -r -q . && git checkout origin/backup/pre-v2-20260927-2103 -- .
+   git commit -m "Retour à la V1" && git push
+   ```
+2. Le déploiement Pages se relance automatiquement depuis `main`.
+
+Rien n’est réécrit ni forcé : la V2 reste dans l’historique et peut être rétablie en annulant ce
+commit (`git revert`). Les sauvegardes V2 ne sont pas lisibles par la V1 ; la copie V1 exportée,
+elle, l’est (Importer une sauvegarde).
 
 ## Crédits
 
@@ -206,43 +165,31 @@ Détail complet : [ASSET_CREDITS.md](ASSET_CREDITS.md), manifeste
 
 | Dossier | Contenu |
 |---|---|
-| `src/config/` | équilibrage (vitesses, faim, durées, hordes…) |
-| `src/data/` | définitions : objets, recettes, constructions, ennemis, butin, notes, crédits |
-| `src/world/` | modèle du monde et génération procédurale (graine, validation, repli) |
-| `src/sim/` | simulation indépendante du rendu : joueur, zombies, pathfinding, actions, objectifs |
+| `src/config/` | équilibrage général (vitesses, faim, mort, points de halte) |
+| `src/data/` | définitions : objets, armes et compétences, ennemis et boss, destinations et paliers, recettes, installations, enchantements, butin |
+| `src/maps/` | cartes dessinées (ASCII exporté par `tools/maps/`) : camp, maison, Bois, Marais, Bastion, Carrière |
+| `src/world/` | modèle du monde et construction d’une carte (terrain, murs, eau, objets, repères) |
+| `src/sim/` | simulation indépendante du rendu : joueur, combat, IA, voyages et donjons, actions, objectifs |
 | `src/save/` | sérialisation versionnée, IndexedDB, secours |
 | `src/input/` | joystick multitouch et clavier |
 | `src/render/` | rendu Phaser : terrain, objets (culling par chunks), personnages, lumière |
 | `src/ui/` | interface HTML/CSS : HUD, panneaux, icônes découpées dans les atlas |
-| `tools/assets/` | scripts de préparation des assets (découpe, assemblage, conversion, manifeste) |
+| `tools/assets/`, `tools/maps/` | préparation des assets (découpe, assemblage, conversion) et dessin des cartes |
 | `tests/` | tests unitaires (Vitest) et test de bout en bout (Playwright) |
 
 ## Performances
 
-Mesures (`tests/e2e/perf.mjs`) dans Chromium sans tête, écran 844×390 à densité 2, **rendu WebGL
-logiciel (SwiftShader) sur une machine virtuelle à 4 cœurs** : ce n’est pas un téléphone. Le coût
-JavaScript par image reste inférieur à 1 ms (simulation 0,1–0,5 ms, mise à jour de la scène
-0,1–0,7 ms, interface < 0,1 ms), y compris la nuit avec 14 ennemis. Le temps d’image est dominé par
-le remplissage de pixels du GPU logiciel : à densité 1 (4 fois moins de pixels) le même jeu passe
-de ~19 à ~55 images/s. Optimisations réalisées après mesure : voile de nuit calculé au quart de
-résolution (3,6 ms → 0,4 ms par image), écritures DOM du HUD limitées aux valeurs qui changent
-(35–57 → 2–11 modifications/s), textes flottants réutilisés, et **qualité automatique** qui abaisse
-la résolution si le jeu reste saccadé. Les 1–2 images/s observées dans un navigateur distant
-correspondent à ce cas de rendu logiciel ; elles ne sont pas représentatives d’un iPhone, qui n’a
-pas été mesuré.
+Rendu par calques de tuiles Phaser (un seul dessin par calque), objets affichés par morceaux de
+carte proches de la caméra, grille spatiale pour les ennemis, voile d’éclairage au quart de la
+résolution, écritures DOM du HUD limitées aux valeurs qui changent, musiques chargées à la demande.
+La qualité automatique abaisse la résolution si le jeu reste saccadé. Mesures faites dans Chromium
+avec rendu logiciel (machine virtuelle) : pas représentatives d’un téléphone réel.
 
 ## Limites connues
 
-- **Tests sur appareils réels** : le jeu a été testé dans Chromium en émulation mobile (paysage
-  844×390, portrait 390×844, téléphone étroit 360×640, ordinateur 1280×800, écran tactile,
-  multitouch simulé par le protocole du navigateur). Il n’a **pas** été testé sur un vrai iPhone ni
-  un vrai téléphone Android : Safari iOS en particulier reste à vérifier sur appareil.
-- **Durée et équilibrage** : première nuit vérifiée avec des joueurs simulés (débutant préparé :
-  survit mais prend des coups ; mal préparé : peut fuir, jamais de série de morts) ; à affiner avec
-  de vrais retours.
-- **Assets** : pas de charrette (remplacée par des chargements de tonneaux/caisses ; la scène
-  « convoi pillé » n’existe pas), pas de rotation des constructions, la « torche sur support » est
-  une lanterne sur poteau, la brute réutilise un corps musclé recoloré. Équipement visible : la
-  massue n’apparaît que pendant la frappe, la torche n’est pas visible en main, les deux haches
-  partagent le même dessin, le gambison est représenté par l’armure de cuir.
-- **Anciennes parties** : leur monde est conservé, donc sans les nouvelles scènes d’exploration.
+- Pas encore testé sur un vrai iPhone ni un vrai Android (émulation mobile Chromium seulement).
+- Équilibrage (dégâts, paliers, délais) vérifié par tests et parties simulées, à affiner avec de
+  vrais retours.
+- Assets : le **loup** est le renard arctique LPC teinté en gris (aucun loup LPC compatible) ; le
+  boss de la carrière est le grand ver LPC agrandi ; les murs du bastion sont les murs de château
+  LPC assombris. Les emplacements de compagnons sont réservés au camp mais sans compagnon.

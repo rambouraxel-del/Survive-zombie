@@ -2387,3 +2387,19 @@ details.skills-info summary {
   color: var(--gold);
   margin: 4px 0;
 }
+/* aide clavier V2 : deux colonnes, sous les jauges */
+body.kbd-mode #kbd-hints {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 14px;
+  row-gap: 3px;
+  font-size: 11px;
+}
+body.kbd-mode.keys-learned #kbd-hints {
+  display: none;
+}
+@media (orientation: portrait) {
+  body.kbd-mode #kbd-hints {
+    display: none;
+  }
+}

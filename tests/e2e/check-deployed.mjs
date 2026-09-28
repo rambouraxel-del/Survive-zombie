@@ -67,7 +67,7 @@ if (title) {
   await page.getByText('Nouvelle partie').first().click();
   const c = page.getByRole('button', { name: 'Nouvelle partie' });
   if ((await c.count()) > 1) await c.last().click();
-  await page.getByText('Commencer').click();
+  await page.getByText('Je suis prêt').click();
   // la simulation doit avancer (machine lente, rendu logiciel : on attend jusqu'à 15 s)
   await page.waitForFunction(() => (window.__app?.game?.clock ?? 0) > 1, null, { timeout: 15000 }).catch(() => {});
   const st = await page.evaluate(() => {
@@ -110,7 +110,7 @@ if (title) {
   await page.locator('#panel-layer .main-tabs .tab', { hasText: 'Fabriquer' }).tap();
   await page.waitForTimeout(200);
   const recipes = await page.locator('#panel-layer .recipe').count();
-  check('interface : sac et onglets (fabrication)', tabs.length === 4 && recipes > 10, `${tabs.map((t) => t.replace(/[A-Z]$/, '')).join(', ')} · ${recipes} recettes`);
+  check('interface : sac et onglets (fabrication)', tabs.length >= 5 && recipes > 10, `${tabs.map((t) => t.replace(/[A-Z]$/, '')).join(', ')} · ${recipes} recettes`);
   await page.screenshot({ path: path.join(OUT, '3-fabrication.png') });
   await page.locator('#panel-layer .close').first().tap();
 

@@ -853,6 +853,1013 @@
     "RPG Title Screen Music Pack/Alexei Galar - RPG Title Screen Music Pack - 05 So it begins.ogg"
    ],
    "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "LPC bears deer lions and more",
+   "authors": [
+    "Sevarihk",
+    "tapatilorenzo",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-bears-deer-lions-and-more",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "CC-BY 4.0",
+   "credits_files": "licenses/v2/lpc-bears-deer-lions-COPYING.txt",
+   "local_files": [
+    "assets/chars/bear_grizzly.png",
+    "assets/chars/bear_black.png",
+    "assets/chars/fox_arctic.png",
+    "assets/chars/fox_woods.png",
+    "assets/chars/rat.png",
+    "assets/chars/deer.png"
+   ],
+   "original_files": [
+    "fv/assets/images/LPC bears deer lions and more/individual creature spritesheets/bear, grizzly.png",
+    "fv/assets/images/LPC bears deer lions and more/individual creature spritesheets/bear, black.png",
+    "fv/assets/images/LPC bears deer lions and more/individual creature spritesheets/fox, arctic.png",
+    "fv/assets/images/LPC bears deer lions and more/individual creature spritesheets/fox, woods.png",
+    "fv/assets/images/LPC bears deer lions and more/individual creature spritesheets/giant rat (Sevarihk).png",
+    "fv/assets/images/LPC bears deer lions and more/individual creature spritesheets/deer, light buck.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC Base Assets",
+   "authors": [
+    "Lanea « Sharm » Zimmerman",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "GPL 3.0",
+   "credits_files": "licenses/v2/lpc-base-assets-CREDITS.txt",
+   "local_files": [
+    "assets/chars/ghost.png",
+    "assets/chars/worm.png",
+    "assets/chars/flower.png",
+    "assets/tiles/castlewalls.png",
+    "assets/tiles/castlefloors.png",
+    "assets/tiles/dungeon.png",
+    "assets/atlas/props.png (cadres correspondants)"
+   ],
+   "original_files": [
+    "fv/assets/images/LPC Base Assets/sprites/monsters/ghost.png",
+    "fv/assets/images/LPC Base Assets/sprites/monsters/big_worm.png",
+    "fv/assets/images/LPC Base Assets/sprites/monsters/man_eater_flower.png",
+    "fv/assets/images/LPC Base Assets/tiles/castlewalls.png",
+    "fv/assets/images/LPC Base Assets/tiles/castlefloors.png",
+    "fv/assets/images/LPC Base Assets/tiles/dungeon.png",
+    "LPC Base Assets/tiles/castlewalls.png",
+    "LPC Base Assets/tiles/mountains.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC farming tilesets, magic animations and UI elements",
+   "authors": [
+    "Daniel Eddeland",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-farming-tilesets-magic-animations-and-ui-elements",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "GPL 3.0",
+   "credits_files": "licenses/v2/lpc-farming-magic-readme.txt",
+   "local_files": [
+    "assets/fx/firelion.png",
+    "assets/fx/iceshield.png",
+    "assets/fx/snakebite.png",
+    "assets/fx/torrentacle.png",
+    "assets/fx/turtleshell.png",
+    "assets/atlas/props.png (cadres correspondants)"
+   ],
+   "original_files": [
+    "fv/assets/images/LPC Farming tilesets magic animations and UI elements/magic/magic_firelion_sheet.png",
+    "fv/assets/images/LPC Farming tilesets magic animations and UI elements/magic/magic_iceshield_sheet.png",
+    "fv/assets/images/LPC Farming tilesets magic animations and UI elements/magic/magic_snakebite_sheet.png",
+    "fv/assets/images/LPC Farming tilesets magic animations and UI elements/magic/magic_torrentacle.png",
+    "fv/assets/images/LPC Farming tilesets magic animations and UI elements/magic/turtleshell_front.png",
+    "LPC Farming tilesets magic animations and UI elements/tilesets/reed.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC house interior",
+   "authors": [
+    "Lanea « Sharm » Zimmerman",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-house-interior-and-decorations",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "GPL 3.0",
+   "credits_files": "licenses/v2/lpc-house-interior-credits.txt",
+   "local_files": [
+    "assets/tiles/interior.png",
+    "assets/atlas/props.png (cadres correspondants)"
+   ],
+   "original_files": [
+    "fv/assets/images/LPC house interior/interior.png",
+    "LPC house interior/interior.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC Dungeon Elements",
+   "authors": [
+    "Lanea « Sharm » Zimmerman",
+    "William Thompson",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-dungeon-elements",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "GPL 3.0",
+   "credits_files": "licenses/v2/lpc-dungeon-elements-credit.txt",
+   "local_files": [
+    "assets/atlas/props.png (cadres correspondants)"
+   ],
+   "original_files": [
+    "LPC Dungeon Elements/dungeonex.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC Rocks",
+   "authors": [
+    "bluecarrot16",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-rocks",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "CC-BY 4.0",
+   "credits_files": "licenses/v2/lpc-rocks-CREDITS.txt",
+   "local_files": [
+    "assets/atlas/props.png (cadres correspondants)"
+   ],
+   "original_files": [
+    "LPC Rocks/rocks.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC Trees",
+   "authors": [
+    "bluecarrot16",
+    "et al."
+   ],
+   "source": "https://opengameart.org/content/lpc-trees",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)",
+   "license": "CC-BY-SA 3.0",
+   "credits_files": "licenses/v2/lpc-trees-CREDITS.txt",
+   "local_files": [
+    "assets/atlas/props.png (cadres correspondants)"
+   ],
+   "original_files": [
+    "LPC Trees/trees-dead.png"
+   ],
+   "modifications": "Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage."
+  },
+  {
+   "pack": "LPC Revised (ElizaWy/LPC)",
+   "authors": [
+    "Eliza Wyatt (DeathsDarling)",
+    "Lanea Zimmerman (Sharm)",
+    "Stephen Challener (Redshrike)",
+    "Johannes Sjölund (Wulax)",
+    "bluecarrot16",
+    "BenCreating",
+    "Durrani",
+    "YuriNikolai",
+    "Hyptosis",
+    "Demetrius",
+    "Craftpix.net 2D Game Assets"
+   ],
+   "source": "https://github.com/ElizaWy/LPC",
+   "downloaded_from": "https://github.com/ElizaWy/LPC (commit f07f7f5892e67c932c68f70bb04472f2c64e46bc)",
+   "license": "OGA-BY 3.0",
+   "license_url": "https://opengameart.org/content/oga-by-30-faq",
+   "credits_files": "licenses/lpc-revised/",
+   "local_files": [
+    "assets/tiles/cliff_summer.png",
+    "assets/atlas/props.png",
+    "assets/atlas/props.json"
+   ],
+   "original_files": [
+    "Terrain/cliff_summer.png",
+    "Objects/Furniture/Table, Rough Wood.png",
+    "Objects/Furniture/Trough.png",
+    "Objects/Small Items/Dungeon Elements.png",
+    "Objects/Small Items/Ores & Ingots/Ore, Silver.png",
+    "Structure/Bridges/Wood Bridge A - Rails.png",
+    "Terrain/cliff_summer.png",
+    "Terrain/mushrooms.png"
+   ],
+   "modifications": "Copie (falaises) ; découpage et assemblage en atlas (objets)."
+  },
+  {
+   "pack": "Universal LPC Spritesheet Character Generator",
+   "authors": [
+    "voir assets/chars/CREDITS-characters.csv (auteurs fichier par fichier)"
+   ],
+   "source": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator",
+   "downloaded_from": "https://github.com/liberatedpixelcup/Universal-LPC-Spritesheet-Character-Generator (commit 4963a69795255fb15a934c47f478a8bdcf3668f5)",
+   "license": "CC-BY-SA 3.0 (certains calques aussi OGA-BY 3.0 / GPL 3.0 ; la tête de zombie et le corps musclé ne sont proposés qu’en CC-BY-SA 3.0 / GPL 3.0)",
+   "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+   "credits_files": "public/assets/chars/CREDITS-characters.csv",
+   "local_files": [
+    "assets/chars/merc.png",
+    "assets/chars/merc_archer.png",
+    "assets/chars/chief.png"
+   ],
+   "original_files": "voir CREDITS-characters.csv",
+   "modifications": "Superposition des calques et recoloration avec les palettes officielles du générateur."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/knifeSlice.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/knife.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/knifeSlice.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Battle Sound Effects",
+   "authors": [
+    "Ogrebane"
+   ],
+   "source": "https://opengameart.org/content/battle-sound-effects",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/oga-battle/battle_sound_effects/swish_4.wav)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/swing_heavy.mp3"
+   ],
+   "original_files": [
+    "oga-battle/battle_sound_effects/swish_4.wav"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactMetal_heavy_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/clang.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactMetal_heavy_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactPunch_heavy_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/thud.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactPunch_heavy_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — RPG Audio",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/rpg-audio",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/rpg-audio/metalLatch.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/reload.mp3"
+   ],
+   "original_files": [
+    "rpg-audio/metalLatch.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactGlass_medium_001.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/glass.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactGlass_medium_001.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/impactMining_003.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/rock_hit.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/impactMining_003.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_concrete_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_stone_0.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_concrete_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_concrete_002.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_stone_1.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_concrete_002.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_wood_000.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_wood_0.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_wood_000.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Kenney — Impact Sounds",
+   "authors": [
+    "Kenney"
+   ],
+   "source": "https://kenney.nl/assets/impact-sounds",
+   "downloaded_from": "https://github.com/Mcamento8/open-game-sfx-index (audio/impact-sounds/footstep_wood_002.ogg)",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/step_wood_1.mp3"
+   ],
+   "original_files": [
+    "impact-sounds/footstep_wood_002.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Spell_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/spell_0.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Spell_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Spell_01.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/spell_1.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Spell_01.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Spell_02.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/spell_2.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Spell_02.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Spell_03.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/spell_3.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Spell_03.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Spell_04.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/spell_4.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Spell_04.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/battle/magic1.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/magic.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/battle/magic1.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/battle/spell.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/cast.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/battle/spell.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/battle/sword-unsheathe2.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/sword_draw.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/battle/sword-unsheathe2.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/battle/swing2.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/swing_sword.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/battle/swing2.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/misc/wolfman.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/wolf.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/misc/wolfman.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/gutteral beast/mnstr2.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/beast_0.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/gutteral beast/mnstr2.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/gutteral beast/mnstr7.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/beast_1.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/gutteral beast/mnstr7.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/giant/giant2.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/giant.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/giant/giant2.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/ogre/ogre3.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/ogre.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/ogre/ogre3.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/shade/shade5.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/shade_0.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/shade/shade5.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/shade/shade9.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/shade_1.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/shade/shade9.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/slime/slime4.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/slime.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/slime/slime4.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/NPC/beetle/bite-small2.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/bite.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/NPC/beetle/bite-small2.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Goblin_01.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/goblin.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Goblin_01.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Dragon_Growl_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/roar_0.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Dragon_Growl_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Dragon_Growl_01.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/roar_1.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Dragon_Growl_01.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Trap_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/trap.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Trap_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/inventory/bottle.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/bottle.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/inventory/bottle.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/inventory/bubble2.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/bubble.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/inventory/bubble2.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "RPG Sound Pack",
+   "authors": [
+    "artisticdude"
+   ],
+   "source": "https://opengameart.org/content/rpg-sound-pack",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/RPG Sound Pack/inventory/chainmail1.ogg",
+   "license": "CC0 1.0",
+   "local_files": [
+    "assets/audio/chain.mp3"
+   ],
+   "original_files": [
+    "RPG Sound Pack/inventory/chainmail1.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Jingle_Win_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/win.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Jingle_Win_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Jingle_Achievement_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/achieve.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Jingle_Achievement_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Jingle_Lose_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/lose.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Jingle_Lose_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Footsteps/Footstep_Dirt_01.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/step_dirt_0.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Footsteps/Footstep_Dirt_01.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Footsteps/Footstep_Dirt_04.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/step_dirt_1.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Footsteps/Footstep_Dirt_04.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Footsteps/Footstep_Water_01.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/step_water_0.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Footsteps/Footstep_Water_01.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Footsteps/Footstep_Water_04.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/step_water_1.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Footsteps/Footstep_Water_04.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Fantasy Sound Library",
+   "authors": [
+    "Little Robot Sound Factory"
+   ],
+   "source": "https://opengameart.org/content/fantasy-sound-effects-library",
+   "downloaded_from": "https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9), assets/sounds/Fantasy Sound Library/Wav/Ambience_Cave_00.ogg",
+   "license": "CC-BY 3.0",
+   "local_files": [
+    "assets/audio/cave_amb.mp3"
+   ],
+   "original_files": [
+    "Fantasy Sound Library/Wav/Ambience_Cave_00.ogg"
+   ],
+   "modifications": "Conversion en MP3 mono 64 kb/s."
+  },
+  {
+   "pack": "Flare — safe_room_theme.ogg",
+   "authors": [
+    "remaxim"
+   ],
+   "source": "https://opengameart.org/users/remaxim",
+   "downloaded_from": "https://github.com/flareteam/flare-game (commit af6eee6), mods/fantasycore/music/safe_room_theme.ogg",
+   "license": "CC-BY-SA 3.0",
+   "credits_files": "licenses/v2/flare-music-credits.md",
+   "local_files": [
+    "assets/audio/music_camp.mp3"
+   ],
+   "original_files": [
+    "safe_room_theme.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "Flare — battle_theme.ogg",
+   "authors": [
+    "remaxim"
+   ],
+   "source": "https://opengameart.org/users/remaxim",
+   "downloaded_from": "https://github.com/flareteam/flare-game (commit af6eee6), mods/fantasycore/music/battle_theme.ogg",
+   "license": "CC-BY-SA 3.0",
+   "credits_files": "licenses/v2/flare-music-credits.md",
+   "local_files": [
+    "assets/audio/music_battle.mp3"
+   ],
+   "original_files": [
+    "battle_theme.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "Flare — boss_theme.ogg",
+   "authors": [
+    "remaxim"
+   ],
+   "source": "https://opengameart.org/users/remaxim",
+   "downloaded_from": "https://github.com/flareteam/flare-game (commit af6eee6), mods/fantasycore/music/boss_theme.ogg",
+   "license": "CC-BY-SA 3.0",
+   "credits_files": "licenses/v2/flare-music-credits.md",
+   "local_files": [
+    "assets/audio/music_boss.mp3"
+   ],
+   "original_files": [
+    "boss_theme.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "Flare — dungeon_theme.ogg",
+   "authors": [
+    "remaxim"
+   ],
+   "source": "https://opengameart.org/users/remaxim",
+   "downloaded_from": "https://github.com/flareteam/flare-game (commit af6eee6), mods/fantasycore/music/dungeon_theme.ogg",
+   "license": "CC-BY-SA 3.0",
+   "credits_files": "licenses/v2/flare-music-credits.md",
+   "local_files": [
+    "assets/audio/music_ruins.mp3"
+   ],
+   "original_files": [
+    "dungeon_theme.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
+  },
+  {
+   "pack": "Flare — forest_theme.ogg",
+   "authors": [
+    "Brandon Morris (Augmentality)"
+   ],
+   "source": "https://opengameart.org/content/creepy-forest-f",
+   "downloaded_from": "https://github.com/flareteam/flare-game (commit af6eee6), mods/fantasycore/music/forest_theme.ogg",
+   "license": "CC-BY 3.0",
+   "credits_files": "licenses/v2/flare-music-credits.md",
+   "local_files": [
+    "assets/audio/music_eerie.mp3"
+   ],
+   "original_files": [
+    "forest_theme.ogg"
+   ],
+   "modifications": "Conversion en MP3 96 kb/s."
   }
  ],
  "uncovered_files": []

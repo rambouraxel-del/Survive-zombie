@@ -220,7 +220,7 @@ export class Game {
     if (opts.collected && got > 0) this.stats.collected[id] = (this.stats.collected[id] ?? 0) + got;
     // ressources de sortie (région de ressources) : traçabilité de la provenance
     if (this.run && this.run.kind === 'farm' && got > 0 && (item(id).kind === 'resource' || item(id).kind === 'rare' || item(id).kind === 'food')) {
-      this.run.gains[id] = (this.run.gains[id] ?? 0) + qty;
+      this.run.gains[id] = (this.run.gains[id] ?? 0) + got;
     }
     if (left > 0) {
       this.dropNear(this.player.x, this.player.y, [newStack(id, left, opts.ench)]);

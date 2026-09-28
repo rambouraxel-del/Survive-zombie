@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "e2e": "node tests/e2e/run.mjs"
+    "e2e": "node tests/e2e/v2-shots.mjs http://localhost:4173/ test-results/v2 paysage"
   },
   "dependencies": {
     "phaser": "3.90.0"

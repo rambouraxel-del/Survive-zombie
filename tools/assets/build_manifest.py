@@ -5,7 +5,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from convert_audio import MUSIC, SOUNDS  # noqa: E402
+from convert_audio import MUSIC, MUSIC_FLARE, SOUNDS, SOUNDS_FV, SOUNDS_FVS  # noqa: E402
+from copy_v2 import FILES as V2_FILES  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', '..')
 A = os.path.join(ROOT, 'public', 'assets')
@@ -94,6 +95,48 @@ for key, src in MUSIC.items():
     name, author, url, lic = MUSIC_PACKS[key]
     entries.append({'pack': name, 'authors': [author], 'source': url, 'downloaded_from': f'https://github.com/tchx84/FreedomValley (assets/sounds/{src})', 'license': lic,
                     'local_files': [f'assets/audio/{key}.mp3'], 'original_files': [src], 'modifications': 'Conversion en MP3 96 kb/s.'})
+
+# ---------------------------------------------------------------- V2
+FV_DL = 'https://github.com/tchx84/FreedomValley (commit b50dccde01eb8137ed6833aed98ecd2584ba04a9)'
+V2_PACKS = [
+    ('LPC bears deer lions and more', ['Sevarihk', 'tapatilorenzo', 'et al.'], 'https://opengameart.org/content/lpc-bears-deer-lions-and-more', 'CC-BY 4.0', 'licenses/v2/lpc-bears-deer-lions-COPYING.txt', 'LPC bears deer lions and more'),
+    ('LPC Base Assets', ['Lanea « Sharm » Zimmerman', 'et al.'], 'https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles', 'GPL 3.0', 'licenses/v2/lpc-base-assets-CREDITS.txt', 'LPC Base Assets'),
+    ('LPC farming tilesets, magic animations and UI elements', ['Daniel Eddeland', 'et al.'], 'https://opengameart.org/content/lpc-farming-tilesets-magic-animations-and-ui-elements', 'GPL 3.0', 'licenses/v2/lpc-farming-magic-readme.txt', 'LPC Farming tilesets'),
+    ('LPC house interior', ['Lanea « Sharm » Zimmerman', 'et al.'], 'https://opengameart.org/content/lpc-house-interior-and-decorations', 'GPL 3.0', 'licenses/v2/lpc-house-interior-credits.txt', 'LPC house interior'),
+    ('LPC Dungeon Elements', ['Lanea « Sharm » Zimmerman', 'William Thompson', 'et al.'], 'https://opengameart.org/content/lpc-dungeon-elements', 'GPL 3.0', 'licenses/v2/lpc-dungeon-elements-credit.txt', 'LPC Dungeon Elements'),
+    ('LPC Rocks', ['bluecarrot16', 'et al.'], 'https://opengameart.org/content/lpc-rocks', 'CC-BY 4.0', 'licenses/v2/lpc-rocks-CREDITS.txt', 'LPC Rocks'),
+    ('LPC Trees', ['bluecarrot16', 'et al.'], 'https://opengameart.org/content/lpc-trees', 'CC-BY-SA 3.0', 'licenses/v2/lpc-trees-CREDITS.txt', 'LPC Trees'),
+]
+props_src = sorted(set(fs['props.png'].values()))
+for name, authors, url, lic, cred, key in V2_PACKS:
+    local = [f'assets/{dst}' for dst, src in V2_FILES.items() if key in src]
+    orig = [src for src in V2_FILES.values() if key in src] + [x for x in props_src if key in x]
+    if any(key in x for x in props_src):
+        local.append('assets/atlas/props.png (cadres correspondants)')
+    entries.append({'pack': name, 'authors': authors, 'source': url, 'downloaded_from': FV_DL, 'license': lic, 'credits_files': cred,
+                    'local_files': local, 'original_files': orig, 'modifications': 'Copie sans modification (feuilles, tuiles) ; pour l’atlas : découpage et assemblage.'})
+el_props = [x for x in props_src if not any(k in x for *_, k in V2_PACKS)]
+entries.append({**PACKS['lpc-revised'], 'local_files': ['assets/tiles/cliff_summer.png', 'assets/atlas/props.png', 'assets/atlas/props.json'],
+                'original_files': ['Terrain/cliff_summer.png'] + el_props, 'modifications': 'Copie (falaises) ; découpage et assemblage en atlas (objets).'})
+entries.append({**PACKS['ulpc'], 'local_files': ['assets/chars/merc.png', 'assets/chars/merc_archer.png', 'assets/chars/chief.png'], 'original_files': 'voir CREDITS-characters.csv',
+                'modifications': 'Superposition des calques et recoloration avec les palettes officielles du générateur.'})
+for key, src in SOUNDS_FV.items():
+    pack = src.split('/')[0]
+    name, author, url, lic = AUDIO_PACKS[pack]
+    entries.append({'pack': name, 'authors': [author], 'source': url, 'downloaded_from': f'https://github.com/Mcamento8/open-game-sfx-index (audio/{src})', 'license': lic,
+                    'local_files': [f'assets/audio/{key}.mp3'], 'original_files': [src], 'modifications': 'Conversion en MP3 mono 64 kb/s.'})
+for key, src in SOUNDS_FVS.items():
+    if src.startswith('Fantasy'):
+        name, author, url, lic = ('Fantasy Sound Library', 'Little Robot Sound Factory', 'https://opengameart.org/content/fantasy-sound-effects-library', 'CC-BY 3.0')
+    else:
+        name, author, url, lic = AUDIO_PACKS['oga-rpg-pack']
+    entries.append({'pack': name, 'authors': [author], 'source': url, 'downloaded_from': f'{FV_DL}, assets/sounds/{src}', 'license': lic,
+                    'local_files': [f'assets/audio/{key}.mp3'], 'original_files': [src], 'modifications': 'Conversion en MP3 mono 64 kb/s.'})
+for key, src in MUSIC_FLARE.items():
+    rem = src != 'forest_theme.ogg'
+    entries.append({'pack': f'Flare — {src}', 'authors': ['remaxim' if rem else 'Brandon Morris (Augmentality)'], 'source': 'https://opengameart.org/users/remaxim' if rem else 'https://opengameart.org/content/creepy-forest-f',
+                    'downloaded_from': f'https://github.com/flareteam/flare-game (commit af6eee6), mods/fantasycore/music/{src}', 'license': 'CC-BY-SA 3.0' if rem else 'CC-BY 3.0',
+                    'credits_files': 'licenses/v2/flare-music-credits.md', 'local_files': [f'assets/audio/{key}.mp3'], 'original_files': [src], 'modifications': 'Conversion en MP3 96 kb/s.'})
 
 # fichiers réellement présents non couverts ?
 present = []
